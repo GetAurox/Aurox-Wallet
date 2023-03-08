@@ -1,0 +1,14 @@
+html,
+body {
+  width: 100%;
+  min-width: var(--app-width);
+  min-height: var(--app-height);
+  max-height: 100vh;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  max-width: var(--app-width);
+  margin: auto;
+}

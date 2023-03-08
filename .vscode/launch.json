@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "pwa-chrome",
+      "request": "launch",
+      "name": "Launch Chrome against Uniswap",
+      "url": "https://app.uniswap.org/",
+      "runtimeArgs": [
+        "--load-extension=${workspaceFolder}/dist"
+      ],
+      "webRoot": "${workspaceFolder}/dist"
+    }
+  ]
+}

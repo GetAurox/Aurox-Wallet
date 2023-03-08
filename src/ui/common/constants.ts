@@ -1,0 +1,2 @@
+export const BASIC_LIST_ITEM_HEIGHT = 68;
+export const EXPANDED_LIST_ITEM_HEIGHT = 80;

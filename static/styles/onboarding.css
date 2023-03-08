@@ -1,0 +1,90 @@
+@font-face {
+  font-family: "Gotham";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./fonts/Gotham-Medium.woff2) format("woff2");
+}
+
+@font-face {
+  font-family: "Gotham";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./fonts/GothamBold.woff2) format("woff2");
+}
+
+@font-face {
+  font-family: "Hind Vadodara";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: local("Hind Vadodara SemiBold"), local("HindVadodara-SemiBold"), url(./fonts/HindVadodara-SemiBold.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
+  U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Hind Vadodara";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: local("Hind Vadodara Medium"), local("HindVadodara-Medium"), url(./fonts/HindVadodara-Medium.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
+  U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Hind Vadodara";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: local("Hind Vadodara SemiBold"), local("HindVadodara-SemiBold"), url(./fonts/HindVadodara-SemiBold.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
+  U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+  src: url(./fonts/Manrope-Regular.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
+  U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./fonts/Manrope-Medium.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
+  U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./fonts/Manrope-SemiBold.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
+  U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html body {
+  background-color: #060b17;
+  background-image: radial-gradient(46.63% 51.85% at 50% 0%, #111b35 0%, rgba(6, 11, 23, 0) 100%);
+  background-repeat: no-repeat;
+  color: #ffffff;
+}
+h1, h2, h3, h4, p {
+  color: #ffffff;
+}
+

@@ -1,0 +1,9 @@
+export const APP_ZOOM = 0.85;
+
+export const DEFAULT_POPUP_WIDTH = 360 / APP_ZOOM;
+export const DEFAULT_POPUP_HEIGHT = 600 / APP_ZOOM;
+
+export const POPUP_WIDTH_OFFSETS = (16 + 16) / APP_ZOOM; // 16px for left and 16px for right
+export const BASE_DIALOG_HEIGHT_OFFSET = 32;
+
+export const DEFAULT_POPUP_WIDTH_WITHOUT_OFFSETS = DEFAULT_POPUP_WIDTH - POPUP_WIDTH_OFFSETS;

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>{{htmlWebpackPlugin.options.title}}</title>
+  <meta charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-cache" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  {{#if htmlWebpackPlugin.options.isOnboarding}}
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=2,shrink-to-fit=no" />
+  <link href="assets/onboarding/apple-touch-icon.png" rel="apple-touch-icon" sizes="180x180" />
+  <link href="assets/onboarding/favicon-32x32.png" rel="icon" sizes="32x32" type="image/png" />
+  <link href="assets/onboarding/favicon-16x16.png" rel="icon" sizes="16x16" type="image/png" />
+  <link href="assets/onboarding/site.webmanifest" rel="manifest" />
+  <link color="#1f1f2f" href="assets/onboarding/safari-pinned-tab.svg" rel="mask-icon" />
+  <meta content="Aurox" name="apple-mobile-web-app-title" />
+  <meta content="Aurox" name="application-name" />
+  <meta content="#1f1f2f" name="msapplication-TileColor" />
+  <meta content="#1F1F2F" name="theme-color" />
+  {{else}}
+  <link href="styles/common.css" rel="stylesheet">
+  {{/if}}
+  <link href="{{htmlWebpackPlugin.options.rootStyle}}" rel="stylesheet">
+</head>
+
+<body>
+  <div id="app"></div>
+  {{#if htmlWebpackPlugin.options.mock}}
+  <div id="outline"></div>
+  {{/if}}
+</body>
+
+</html>

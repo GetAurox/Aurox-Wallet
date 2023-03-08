@@ -1,0 +1,97 @@
+:root {
+  --app-zoom: 0.85;
+  --frame-width: 360px;
+  --frame-height: 600px;
+  --app-width: calc(var(--frame-width) / var(--app-zoom));
+  --app-height: calc(var(--frame-height) / var(--app-zoom));
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  zoom: var(--app-zoom);
+  font-family: "Roboto", sans-serif;
+}
+
+html,
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb:hover {
+  display: none;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(44, 129, 252, 0.5);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(44, 129, 252, 0.75);
+}
+
+.scroll::-webkit-scrollbar-thumb, .scroll ::-webkit-scrollbar-thumb,
+.scroll::-webkit-scrollbar-thumb:hover, .scroll ::-webkit-scrollbar-thumb:hover {
+  display: block;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  min-width: var(--app-width);
+  min-height: var(--app-height);
+  background-color: #0b0f17;
+}
+
+main {
+  flex: 1;
+  width: 100%;
+  height: auto;
+  min-height: 100vh;
+  margin: auto;
+}
+
+.shadow-circle {
+  box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.05), 0px 3px 1px rgba(0, 0, 0, 0.0510643), 0px 2px 2px rgba(0, 0, 0, 0.1),
+    0px 3px 3px rgba(0, 0, 0, 0.05);
+}
+
+.dark-gradient-bg {
+  background: radial-gradient(ellipse at center 50%, rgba(54, 59, 67, 1) 12%, rgba(11, 15, 23, 1) 72%, rgba(11, 15, 23, 0) 88%);
+}
+
+.page-fade-enter {
+  z-index: 1;
+  opacity: 0;
+}
+
+.page-fade-enter.page-fade-enter-active {
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+
+.fade-exit {
+  opacity: 1;
+}
+
+.page-fade-exit.page-fade-exit-active {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}

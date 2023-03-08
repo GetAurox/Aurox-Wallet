@@ -1,0 +1,9 @@
+html,
+body {
+  width: inherit;
+  height: 100vh;
+}
+
+#app {
+  margin: 0 auto;
+}
