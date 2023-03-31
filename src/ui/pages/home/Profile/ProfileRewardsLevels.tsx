@@ -89,7 +89,8 @@ export default function ProfileRewardsLevels(props: ProfileRewardsLevelsProps) {
   };
 
   const handleChangeToCurrentLevel = (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-    onLevelChange(event, rewardSystemAllLevelsData.findIndex(level => level.identity === rewardSystemLevelData?.identity) + 1);
+    const pageIndex = rewardSystemAllLevelsData.findIndex(level => level.identity === rewardSystemLevelData?.identity);
+    onLevelChange(event, pageIndex === -1 ? 1 : pageIndex + 1);
   };
 
   return (
