@@ -1,4 +1,4 @@
-This license agreement (the "Agreement") is entered into between by and between **Aurox Holdings, Inc.,** a Nevada corporation (the "Licensee"), and any person or entity (the "Licensee") who wishes to use, copy, modify, distribute, or otherwise utilize the Aurox Wallet software (the "Software").
+This license agreement (the "Agreement") is entered into between by and between **Aurox Holdings, Inc.,** a Nevada corporation (the "Licensor"), and any person or entity (the "Licensee") who wishes to use, copy, modify, distribute, or otherwise utilize the Aurox Wallet software (the "Software").
 
 By using, copying, modifying, distributing, or otherwise utilizing the Software, you, the Licensee, agree to be bound by the terms of this Agreement.
 
