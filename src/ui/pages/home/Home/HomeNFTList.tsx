@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import orderBy from "lodash/orderBy";
 import produce from "immer";
 
@@ -11,18 +11,18 @@ import { defaultUserPreferences } from "common/storage";
 import { SortSetting } from "ui/types";
 import { EasterEgg } from "ui/common/rewardSystem";
 
-import { useLocalUserPreferences } from "ui/hooks";
-import { useAccountNFTsBalance } from "ui/hooks/accounts/useAccountNFTsBalance";
+import { useActiveAccountFlatNFTBalances, useFuse, useLocalUserPreferences } from "ui/hooks";
 
 import EmptyList from "ui/components/common/EmptyList";
 import NFTListItem from "ui/components/entity/nft/NFTListItem";
 
 import { useHistoryPush } from "ui/common/history";
 
-import { nftMocks } from "./mocks";
+import { applyTokenAssetVisibilityRules } from "common/utils";
 
 import HomeListSubheader from "./HomeListSubheader";
 import HomeListSubheaderSort from "./HomeListSubheaderSort";
+import { nftMocks } from "./mocks";
 
 const sxStyles = {
   buttonImportToken: {
@@ -39,22 +39,26 @@ export default function HomeNFTList(props: HomeNFTListProps) {
 
   const push = useHistoryPush();
 
-  const result = useAccountNFTsBalance([activeAccountNetworkAddress]);
+  const balances = useActiveAccountFlatNFTBalances();
+
+  const visibleBalances = useMemo(() => balances.filter(applyTokenAssetVisibilityRules), [balances]);
+
   const [userPreferences, setUserPreferences] = useLocalUserPreferences();
 
   const sort = userPreferences.myNFTsSort ?? (defaultUserPreferences.myNFTsSort as SortSetting);
 
   const nfts: NFTItem[] =
-    result.balances[activeAccountNetworkAddress ?? ""]?.balance.nftTokens.map((nft, index) => ({
+    visibleBalances.map((balance, index) => ({
       ...nftMocks[index],
-      tokenId: nft.tokenId,
-      symbol: nft.token.symbol,
-      icon: nft.metadata?.imageUrl,
-      decimals: nft.token.decimals,
-      tokenAddress: nft.tokenAddress,
-      accountAddress: nft.accountAddress,
-      tokenContractType: nft.tokenContractType,
-      name: (nft.metadata?.name || nft.token?.name) ?? "Error: Unable to get NFT information",
+      networkIdentifier: balance.networkIdentifier,
+      tokenId: balance.metadata.tokenId,
+      symbol: balance.symbol,
+      icon: balance.metadata.image ?? "",
+      decimals: balance.decimals,
+      tokenAddress: balance.contractAddress,
+      accountAddress: activeAccountNetworkAddress as string,
+      tokenContractType: balance.contractType,
+      name: balance.name && balance.name !== "" ? balance.name : "Error: Unable to get NFT information",
     })) ?? [];
 
   const handleSort = (newSort: SortSetting) => {
@@ -65,22 +69,34 @@ export default function HomeNFTList(props: HomeNFTListProps) {
     );
   };
 
-  const handleSearch = () => undefined;
+  const { fuzzyResults, onSearch, updateQuery } = useFuse(nfts, {
+    keys: ["name", "symbol"],
+    matchAllOnEmptyQuery: true,
+  });
 
-  const handleSearchClose = () => undefined;
+  const handleSearchClose = () => {
+    updateQuery("");
+  };
 
   const handleManageNFTs = () => {
     push("/manage-nfts");
   };
-
-  const ordered = orderBy(nfts, [sort.prop], [sort.dir]);
+  const ordered = useMemo(
+    () =>
+      orderBy(
+        fuzzyResults.map(item => item.item),
+        [item => item[sort.prop as "name"].toLowerCase()],
+        [sort.dir === "asc" ? "desc" : "asc"],
+      ),
+    [fuzzyResults, sort.dir, sort.prop],
+  );
 
   return (
     <Box component="section">
       <HomeListSubheader
         sort={<HomeListSubheaderSort onSort={handleSort} sort={sort} />}
         title="My NFTs"
-        onSearch={handleSearch}
+        onSearch={onSearch}
         onSearchClose={handleSearchClose}
         icon={
           <IconButton sx={sxStyles.buttonImportToken} onClick={handleManageNFTs}>

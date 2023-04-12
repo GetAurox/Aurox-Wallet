@@ -1,44 +1,44 @@
-import { ethers } from "ethers";
-
 import { Theme, Stack, Typography } from "@mui/material";
 
 import TokenIdentity from "ui/components/entity/token/TokenIdentity";
-import { formatBalance, TEN_MILLIONS } from "ui/common/utils";
 import { createNetworkIdentifier } from "common/utils";
 import { ETHEREUM_MAINNET_CHAIN_ID } from "common/config";
 
 export interface SimulationTokenRowProps {
-  amount: string | null;
-  skipAmountSign?: boolean;
-  decimals: number | null;
+  amount: number | null;
+  infinite: boolean;
+  type: "in" | "out";
+  skipAmountSign: boolean;
   name: string;
   image?: string;
-  type?: "in" | "out";
+  chainId?: number;
+}
+
+function getSimulationDisplayData(amount: number | null, type: "in" | "out", skipAmountSign: boolean, infinite: boolean) {
+  if (infinite) {
+    return { formattedAmount: "Infinite", sign: "", color: "warning.main" };
+  }
+
+  if (!amount) {
+    return { formattedAmount: "", sign: "", color: "warning.main" };
+  }
+
+  const formattedAmount = Number.isInteger(amount) && amount === 1 ? amount.toFixed(0) : amount.toFixed(6);
+
+  if (skipAmountSign) {
+    return { formattedAmount, sign: "", color: "warning.main" };
+  }
+
+  const sign = type === "in" ? "+" : "-";
+  const color = type === "in" ? "success.main" : "error.main";
+
+  return { formattedAmount, sign, color };
 }
 
 export default function SimulationTokenRow(props: SimulationTokenRowProps) {
-  const { amount, skipAmountSign, decimals, image, name, type } = props;
+  const { amount, infinite, skipAmountSign, image, name, chainId, type } = props;
 
-  let formattedAmount = "0";
-
-  if (amount) {
-    if (ethers.constants.MaxUint256.eq(amount)) {
-      formattedAmount = "Infinite";
-    } else {
-      if (decimals) {
-        formattedAmount =
-          decimals > 0
-            ? formatBalance(Number.parseInt(amount) / Math.pow(10, decimals), TEN_MILLIONS)
-            : formatBalance(Number.parseInt(amount), TEN_MILLIONS);
-      }
-    }
-  }
-
-  let amountSign = "";
-
-  if (!skipAmountSign) {
-    amountSign = type === "in" ? "+" : "-";
-  }
+  const { formattedAmount, sign, color } = getSimulationDisplayData(amount, type, skipAmountSign, infinite);
 
   return (
     <Stack
@@ -58,14 +58,13 @@ export default function SimulationTokenRow(props: SimulationTokenRowProps) {
         alt={name}
         iconVariant="medium"
         primaryVariant="small"
-        networkIdentifier={createNetworkIdentifier("evm", ETHEREUM_MAINNET_CHAIN_ID)}
+        networkIdentifier={createNetworkIdentifier("evm", chainId ?? ETHEREUM_MAINNET_CHAIN_ID)}
       />
-      {formattedAmount !== "0" && (
-        <Typography variant="headingSmall" fontSize={24} lineHeight={32 / 24} color={type === "in" ? "success.main" : "error.main"}>
-          {amountSign}
-          {formattedAmount}
-        </Typography>
-      )}
+
+      <Typography variant="headingSmall" fontSize={24} lineHeight={32 / 24} color={color}>
+        {sign}
+        {formattedAmount}
+      </Typography>
     </Stack>
   );
 }

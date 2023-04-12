@@ -1,4 +1,4 @@
-import { SupportedTokenContractType } from "./blockchain";
+import { SupportedNFTContractType, SupportedTokenContractType } from "./blockchain";
 
 /**
  * default:
@@ -35,7 +35,13 @@ export interface ImportedAssetToken extends ImportedAssetCommonProperties {
 
 export interface ImportedAssetNFT extends ImportedAssetCommonProperties {
   type: "nft";
-  // TODO: add appropriate metadata props
+  contractType: SupportedNFTContractType;
+  metadata: {
+    tokenId: string;
+    image: string | null;
+    updatedAt: number | null;
+    accountAddress: string; // Pass accountAddress because some NFT can gives balance > 0 for any address. We need filter NFTs by account
+  };
   decimals: number;
   symbol: string;
   name: string;
@@ -56,4 +62,11 @@ export interface ContractAssetDefinition {
   contractAddress: string;
 }
 
-export type AssetDefinition = NativeAssetDefinition | ContractAssetDefinition;
+export interface NFTAssetDefinition {
+  type: "nft";
+  contractType: SupportedNFTContractType;
+  contractAddress: string;
+  tokenId: string;
+}
+
+export type AssetDefinition = NativeAssetDefinition | ContractAssetDefinition | NFTAssetDefinition;

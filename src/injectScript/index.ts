@@ -6,6 +6,7 @@ import { EIP1193EthereumProvider, UmbrellaEIP1193EthereumProvider } from "common
 import { DOMActions, DOMEvents, setMessageSender } from "common/dom";
 
 import { AuroxProvider } from "./provider";
+import { StreamProvider } from "./stream";
 
 setMessageSender("inject-script", document.currentScript?.getAttribute("data-aurox-id") ?? null);
 
@@ -40,7 +41,10 @@ function injectProvider(provider: EIP1193EthereumProvider) {
 }
 
 async function setup() {
+  const streamProvider = new StreamProvider();
+
   const auroxProvider = new AuroxProvider({
+    streamProvider,
     handleProviderSwitchOnRequest: async request => {
       injectProvider(getLastInjectedOtherProvider());
 

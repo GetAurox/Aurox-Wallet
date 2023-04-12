@@ -21,11 +21,13 @@ import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 
 import SearchField from "ui/components/form/SearchField";
 
-import { getHardwareAddressHandler, HdPath, TrezorHelpers } from "common/wallet";
+import { HdPath } from "common/wallet";
 import { HardwareSignerType } from "common/types";
 import { Wallet } from "common/operations";
 
 import { useAccountsOfType, useIsWalletUnlocked } from "ui/hooks";
+
+import { HardwareOperationManager } from "../services";
 
 import WalletModal from "./WalletsModal";
 import WalletTable from "./WalletTable";
@@ -142,15 +144,15 @@ const WalletSelection = ({ hardwareWallet, handleReturn }: WalletSelectionProps)
     const startIndex = lastWallet ? lastWallet.accountNumber + 1 : 0;
 
     try {
-      const details = await getHardwareAddressHandler(hardwareWallet, startIndex, path);
+      const details = await HardwareOperationManager.getMultipleAddresses(hardwareWallet, startIndex, path);
 
       setDeviceWallets(wallets => {
         wallets.push(...details);
 
         return wallets;
       });
-    } catch (e) {
-      setError(e?.message ?? "Error fetching more wallet details");
+    } catch (error) {
+      setError(error?.message ?? "Error fetching more wallet details");
     }
 
     setIsLoadingMore(false);
@@ -161,7 +163,7 @@ const WalletSelection = ({ hardwareWallet, handleReturn }: WalletSelectionProps)
     setIsLoading(true);
 
     try {
-      const details = await getHardwareAddressHandler(hardwareWallet, 0, path);
+      const details = await HardwareOperationManager.getMultipleAddresses(hardwareWallet, 0, path);
 
       setDeviceWallets(details);
     } catch (e) {
@@ -173,10 +175,6 @@ const WalletSelection = ({ hardwareWallet, handleReturn }: WalletSelectionProps)
 
   useEffect(() => {
     (async () => {
-      // initialize the manifest
-      if (hardwareWallet === "trezor") {
-        TrezorHelpers.TrezorManifest.initialize();
-      }
       // set a timeout for 15 seconds
       const timeout = setTimeout(() => setIsLoading(false), 15000);
 

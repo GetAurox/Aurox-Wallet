@@ -10,3 +10,5 @@ export * from "./url";
 export * from "./datetime";
 export * from "./math";
 export * from "./mnemonic";
+export * from "./deserialization";
+export * from "./objectInspection";

@@ -1,14 +1,18 @@
+import pick from "lodash/pick";
 import { TransactionRequest } from "@ethersproject/abstract-provider";
 import { BigNumber, constants } from "ethers";
 import { Deferrable, formatEther, formatUnits, parseUnits } from "ethers/lib/utils";
 
-import pick from "lodash/pick";
-
 import { EVMSignerPopup } from "ui/common/connections";
+import { GasPresetSettings } from "ui/types";
 
 import { EVMFeeManagerInterface } from "../base";
 
 import { EVMFeePreference as FeePreference, TransactionType } from "../types";
+
+import { changeByPercentage } from "../utils";
+
+import { MINIMUM_GAS_LIMIT } from "../constants";
 
 import { FeeConfigurationLegacy, FeeSettings } from "./types";
 
@@ -17,12 +21,22 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
   #selectedFeePreference: FeePreference = "medium";
   #transaction: TransactionRequest;
   #signer: EVMSignerPopup;
+  #gasPresets?: GasPresetSettings;
 
   #blockNumber = 0;
   #userBalance = constants.Zero;
 
-  constructor(transaction: TransactionRequest, signer: EVMSignerPopup) {
+  #defaultPresetByPreference = {
+    gasLimit: {
+      "low": 5,
+      "medium": 10,
+      "high": 20,
+    },
+  };
+
+  constructor(transaction: TransactionRequest, signer: EVMSignerPopup, gasPresets?: GasPresetSettings) {
     this.#signer = signer;
+    this.#gasPresets = gasPresets;
     this.#transaction = pick(transaction, ["data", "from", "to", "value"]);
   }
 
@@ -84,12 +98,16 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
     };
   }
 
-  get feePriceInNativeCurrency() {
+  get feePrice() {
     if (!this.currentFeeSettings) return null;
 
     const { gasLimit, gasPrice } = this.currentFeeSettings;
 
-    const price = formatEther(gasLimit.mul(gasPrice));
+    return gasLimit.mul(gasPrice);
+  }
+
+  get feePriceInNativeCurrency() {
+    const price = formatEther(this.feePrice ?? constants.Zero);
 
     return Number(parseFloat(price).toPrecision(6));
   }
@@ -107,18 +125,34 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
   }
 
   #configureFeesByPreference(gasPrice: BigNumber, gasLimit: BigNumber) {
-    const gasLimitWithBuffer = gasLimit.add(gasLimit.div(4));
+    const getPreset = (gasPrice: BigNumber, preference: Exclude<FeePreference, "custom">): FeeConfigurationLegacy<BigNumber> => {
+      const presetsEnabled = this.#gasPresets?.enabled ?? false;
 
-    const getPreset = (gasPrice: BigNumber): FeeConfigurationLegacy<BigNumber> => ({
-      type: TransactionType.Legacy,
-      gasPrice,
-      gasLimit: gasLimitWithBuffer,
-    });
+      const preferenceGasPresets = this.#gasPresets?.[preference] ?? {};
+
+      const gasLimitPresetEnabled = presetsEnabled && preferenceGasPresets.gasLimit !== undefined;
+      const gasPricePresetEnabled = presetsEnabled && preferenceGasPresets.gasPrice !== undefined;
+
+      const gasLimitPreset = BigNumber.from(preferenceGasPresets.gasLimit ?? 0);
+      const gasPricePreset = BigNumber.from(preferenceGasPresets.gasPrice ?? 0);
+
+      return {
+        type: TransactionType.Legacy,
+        gasPrice: gasPricePresetEnabled ? gasPricePreset : gasPrice,
+        gasLimit: gasLimitPresetEnabled ? gasLimitPreset : getGasLimitByPreference(preference),
+      };
+    };
+
+    const getGasLimitByPreference = (preference: Exclude<FeePreference, "custom">) => {
+      const percentage = gasLimit.eq(MINIMUM_GAS_LIMIT) ? 0 : this.#defaultPresetByPreference.gasLimit[preference];
+
+      return changeByPercentage(gasLimit, percentage);
+    };
 
     this.#feeSettings = {
-      low: getPreset(gasPrice),
-      medium: getPreset(gasPrice.add(gasPrice.div(4))),
-      high: getPreset(gasPrice.add(gasPrice.div(2))),
+      low: getPreset(gasPrice, "low"),
+      medium: getPreset(gasPrice.add(gasPrice.div(4)), "medium"),
+      high: getPreset(gasPrice.add(gasPrice.div(2)), "high"),
       custom: this.#feeSettings?.custom ?? null,
     };
   }

@@ -127,6 +127,18 @@ export const POINTS_DATA = [
   },
 ];
 
+export const MULTIPLIER_DATA = [
+  {
+    Icon: IconSendCoin,
+    IconGray: IconSendCoinGray,
+    title: "Hold Aurox Token",
+    content: [
+      "Earn [b]1.5x[/b] normal points by holding [b]50 Aurox Tokens[/b] in your wallet",
+      "Tokens can be held in any of your imported wallets",
+    ],
+  },
+];
+
 export const MORE_INFO_LINKS = [
   {
     title: "How It Works",

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 
-import { Box, Chip, Stack, SxProps, Theme, Typography } from "@mui/material";
+import { Box, Chip, Stack, Theme, Typography, StackProps, Button } from "@mui/material";
 
 import { ConsolidatedAccountInfo } from "common/types";
 
@@ -51,15 +51,14 @@ const sxStyles = {
   },
 };
 
-export interface ConnectAccountOptionsProps {
-  account: ConsolidatedAccountInfo;
+export interface ConnectAccountOptionsProps extends Omit<StackProps<typeof Button, { component?: typeof Button }>, "onSelect"> {
   selected?: boolean;
+  account: ConsolidatedAccountInfo;
   onSelect?: (uuid: string) => void;
-  sx?: SxProps<Theme>;
 }
 
 export default function ConnectAccountOptions(props: ConnectAccountOptionsProps) {
-  const { account, selected, onSelect, sx } = props;
+  const { account, selected, onSelect, sx, ...stackProps } = props;
 
   const tokens = useVisibleTokensDisplayWithTickers(account.uuid);
 
@@ -82,7 +81,7 @@ export default function ConnectAccountOptions(props: ConnectAccountOptionsProps)
 
   if (domain && !loadingDomain) {
     domainRender = (
-      <Typography variant="medium" color="text.secondary">
+      <Typography alignSelf="start" variant="medium" color="text.secondary">
         (
         <Typography component="span" maxWidth={150} overflow="hidden" textOverflow="ellipsis" title={domain}>
           {domain}
@@ -93,17 +92,22 @@ export default function ConnectAccountOptions(props: ConnectAccountOptionsProps)
   }
 
   return (
-    <Stack direction="row" onClick={handleClick} sx={mixSx(sxStyles.root, selected ? sxStyles.selected : undefined, sx)}>
+    <Stack
+      direction="row"
+      onClick={handleClick}
+      sx={mixSx(sxStyles.root, selected ? sxStyles.selected : undefined, sx)}
+      {...(stackProps as StackProps)}
+    >
       {typeof selected === "boolean" && <Box mr={1}>{selected ? <IconRadioOn /> : <IconRadioOff />}</Box>}
       <Stack flex={1}>
         <Stack direction="row" sx={sxStyles.main}>
           <Stack direction="row" alignItems="center" columnGap={1}>
-            <Typography variant="headingSmall" sx={sxStyles.alias}>
+            <Typography variant="headingSmall" color="text.primary" sx={sxStyles.alias}>
               {account.alias}
             </Typography>
             {typeLabel && <Chip size="small" sx={sxStyles.typeLabel} label={typeLabel} />}
           </Stack>
-          <Typography variant="headingSmall" sx={sxStyles.balance}>
+          <Typography variant="headingSmall" color="text.primary" sx={sxStyles.balance}>
             ${formatPrice(portfolioUSDValue ?? 0)}
           </Typography>
         </Stack>

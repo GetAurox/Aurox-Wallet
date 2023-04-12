@@ -15,6 +15,7 @@ import ProfileRewardsPoints from "./ProfileRewardsPoints";
 import ProfileRewardsLevels from "./ProfileRewardsLevels";
 import ProfileRewardsBenefits from "./ProfileRewardsBenefits";
 import ProfileRewardsMoreInfo from "./ProfileRewardsMoreInfo";
+import ProfileRewardsMultiplier from "./ProfileRewardsMultiplier";
 
 const sxStyles = {
   commonListItem: {
@@ -67,6 +68,7 @@ export default function ProfileRewards() {
         />
         <ProfileRewardsBenefits isLocked={level.isLocked} activeLevelIdentity={level.identity} />
         <ProfileRewardsPoints isLocked={level.isLocked} />
+        <ProfileRewardsMultiplier />
         <ProfileRewardsMoreInfo />
       </Stack>
     </>

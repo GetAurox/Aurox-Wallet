@@ -72,7 +72,10 @@ export type ProcedureResponseMap = {
   "aurox.my.get_level": { args: any[]; kwargs: { level: Level } };
   "aurox.my.get_levels": { args: any[]; kwargs: { levels: Level[] } };
   "aurox.my.get_points": { args: any[]; kwargs: { points: number } };
-  "aurox.my.get_referees_count": { args: any[]; kwargs: { count: number } };
+  "aurox.my.get_referees_count": {
+    args: any[];
+    kwargs: { tier1_referees_count: number; tier2_referees_count: number; tier3_referees_count: number };
+  };
   "aurox.my.get_rewards": {
     args: any[];
     kwargs: {

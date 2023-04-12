@@ -63,6 +63,9 @@ export default function TransactionTokenSectionAdvanced(props: TransactionTokenS
 
   const handleExpandClick = () => setExpanded(value => !value);
 
+  const gasLimitValue = !gasLimit || isNaN(Number(gasLimit)) ? 0 : gasLimit;
+  const gasPriceValue = !gasPrice || isNaN(Number(gasPrice)) ? 0 : gasPrice;
+
   return (
     <>
       <Box gap={1.5} display="grid" alignItems="center" component="section" gridTemplateRows="auto" gridTemplateColumns="repeat(2, 1fr)">
@@ -109,13 +112,13 @@ export default function TransactionTokenSectionAdvanced(props: TransactionTokenS
           Gas Limit (Units):
         </Typography>
         <Typography variant="medium" textAlign="right">
-          {formatAmount(gasLimit ?? 0)}
+          {formatAmount(gasLimitValue)}
         </Typography>
         <Typography variant="medium" color="text.secondary">
           Gas Price (GWEI):
         </Typography>
         <Typography variant="medium" textAlign="right">
-          {status !== "pending" ? formatAmount(gasPrice ?? 0) : "Pending"}
+          {status !== "pending" ? formatAmount(gasPriceValue) : "Pending"}
         </Typography>
       </Collapse>
     </>

@@ -1,4 +1,5 @@
 import { BigNumber } from "ethers";
+
 import { TransactionType } from "../types";
 
 export interface FeeConfigurationEIP1559<S> {

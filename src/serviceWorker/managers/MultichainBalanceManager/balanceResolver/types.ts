@@ -1,9 +1,10 @@
-import { BlockchainNetwork, MultichainNetworkBalances } from "common/types";
+import { BlockchainNetwork, ImportedAsset, MultichainNetworkBalances } from "common/types";
 
 export interface MultichainBalanceResolutionQuery {
   network: BlockchainNetwork;
   accountAddress: string;
   assetIdentifiers: string[];
+  assets: ImportedAsset[];
 }
 
 export type MultichainBalanceResolverType = "leecher" | "rpc";

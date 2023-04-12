@@ -24,6 +24,11 @@
       "js": ["phishing.js"],
       "run_at": "document_start",
       "all_frames": false
+    },
+    {
+      "matches": ["https://twitter.com/*"],
+      "js": ["twitter_script.js"],
+      "run_at": "document_start"
     }
   ],
   "action": {
@@ -70,6 +75,11 @@
     {
       "resources": ["inject_script.js"],
       "matches": ["http://*/*", "https://*/*"]
+    },
+    {
+      "resources": ["assets/twitter/green_arrow_up.svg", "assets/twitter/red_arrow_down.svg"],
+      "matches": ["https://twitter.com/*"],
+      "allow_all_origins": true
     }
   ]
 }

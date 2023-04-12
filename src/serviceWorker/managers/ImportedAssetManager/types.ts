@@ -6,6 +6,21 @@ export type ImportedAssetUpdateToken = [
   payload: { verified: boolean } | { visibility: ImportedAssetVisibility },
 ];
 
-export type ImportedAssetUpdateNFT = [uuid: string, type: "nft", payload: {}];
+export type ImportedAssetUpdateNFT = [
+  uuid: string,
+  type: "nft",
+  payload:
+    | { verified: boolean }
+    | { visibility: ImportedAssetVisibility }
+    | {
+        name: string;
+        metadata: {
+          tokenId: string;
+          image: string | null;
+          updatedAt: number | null;
+          accountAddress: string;
+        };
+      },
+];
 
 export type ImportedAssetUpdate = ImportedAssetUpdateToken | ImportedAssetUpdateNFT;

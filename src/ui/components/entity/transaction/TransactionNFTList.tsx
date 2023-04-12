@@ -30,11 +30,12 @@ export interface TransactionNFTListProps {
   style?: CSSProperties;
   account?: AccountInfo | null;
   nft?: EthereumAccountNFT | null;
+  networkIdentifier?: string;
   onScrollingChanged?: (props: ListOnScrollProps) => void;
 }
 
 export default function TransactionNFTList(props: TransactionNFTListProps) {
-  const { height, onScrollingChanged, nft, account, style } = props;
+  const { height, onScrollingChanged, nft, account, style, networkIdentifier } = props;
 
   const goHome = useGoHome();
 
@@ -42,7 +43,9 @@ export default function TransactionNFTList(props: TransactionNFTListProps) {
     ? { nftTransfers: { tokenAddress: [nft.tokenAddress], limit: NFT_PAGE_TRANSACTIONS_THRESHOLD + 1 } }
     : undefined;
 
-  const { nftTransfers } = useAccountTransactions({ accountInfo: account, ...(apiArgs && { apiArguments: apiArgs }) });
+  const { nftTransfers: allNftTransfers } = useAccountTransactions({ accountInfo: account, ...(apiArgs && { apiArguments: apiArgs }) });
+
+  const nftTransfers = allNftTransfers.filter(transaction => transaction.networkIdentifier === networkIdentifier);
 
   const nftTransactions = mapTokenTransactionsToTokenTransactionRenderData(take(nftTransfers, NFT_PAGE_TRANSACTIONS_THRESHOLD));
 

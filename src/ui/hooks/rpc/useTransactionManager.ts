@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import noop from "lodash/noop";
 
@@ -7,7 +7,10 @@ import { AccountInfo, RawTransaction } from "common/types";
 
 import { EVMTransactionManager } from "ui/common/transactions/transactionManagerV2";
 
+import { GasPresetSettings } from "ui/types";
+
 import { useNetworkGetter } from "../states";
+import { useLocalUserPreferences } from "../storage";
 
 export function useTransactionManager(
   account: AccountInfo | null | undefined,
@@ -16,6 +19,17 @@ export function useTransactionManager(
   nonce?: number,
 ) {
   const [manager, setManager] = useState<EVMTransactionManager | null>(null);
+  const [userPreferences] = useLocalUserPreferences();
+
+  const { general } = userPreferences;
+
+  const gasPresets = useMemo(() => {
+    if (!general || !general.gasPresets || !networkIdentifier) {
+      return {} as GasPresetSettings;
+    }
+
+    return general.gasPresets[networkIdentifier];
+  }, [general, networkIdentifier]);
 
   const networkGetter = useNetworkGetter();
 
@@ -31,7 +45,7 @@ export function useTransactionManager(
         if (!network) return;
 
         const signer = PopupSignerManager.getSigner(account, network) as EVMSignerPopup;
-        const manager = await new EVMTransactionManager(transaction, signer).withFees();
+        const manager = await new EVMTransactionManager(transaction, signer).withFees(gasPresets);
 
         setManager(manager);
 
@@ -48,7 +62,7 @@ export function useTransactionManager(
     return () => {
       if (cleanup) cleanup();
     };
-  }, [account, transaction, networkGetter, networkIdentifier, nonce]);
+  }, [account, transaction, networkGetter, networkIdentifier, nonce, gasPresets]);
 
   return manager;
 }

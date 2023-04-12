@@ -111,7 +111,13 @@ export default function ProfileRewardsLevels(props: ProfileRewardsLevelsProps) {
           <Typography sx={mixSx(sxStyles.currentLevelText, sxStyles.level)}>Your current level</Typography>
         )}
         {rewardSystemLevelData?.identity !== activeLevelData.identity && (
-          <Button size="small" sx={sxStyles.level} variant="outlined" onClick={handleChangeToCurrentLevel}>
+          <Button
+            size="small"
+            variant="outlined"
+            sx={sxStyles.level}
+            disabled={!rewardSystemLevelData}
+            onClick={handleChangeToCurrentLevel}
+          >
             Return to Current Level
           </Button>
         )}

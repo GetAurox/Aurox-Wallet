@@ -1,4 +1,10 @@
-import { AssetDefinition, ImportedAssetVisibility, NativeAssetDefinition, SupportedTokenContractType } from "common/types";
+import {
+  AssetDefinition,
+  ImportedAssetVisibility,
+  NativeAssetDefinition,
+  SupportedNFTContractType,
+  SupportedTokenContractType,
+} from "common/types";
 
 export function isNativeAsset(assetIdentifier: string): boolean;
 export function isNativeAsset(assetDefinition: AssetDefinition): assetDefinition is NativeAssetDefinition;
@@ -12,6 +18,8 @@ export function getAssetIdentifierFromDefinition(assetDefinition: AssetDefinitio
       return "native";
     case "contract":
       return `contract::${assetDefinition.contractType}::${assetDefinition.contractAddress}`;
+    case "nft":
+      return `nft::${assetDefinition.contractType}::${assetDefinition.contractAddress}::${assetDefinition.tokenId}`;
   }
 }
 
@@ -26,6 +34,17 @@ export function getAssetDefinitionFromIdentifier(assetIdentifier: string): Asset
     const contractAddress = contractAddressParts.join("::");
 
     return { type: "contract", contractType: contractType as SupportedTokenContractType, contractAddress };
+  }
+
+  if (type === "nft" && contractType) {
+    const [contractAddress, tokenId] = contractAddressParts;
+
+    return {
+      type: "nft",
+      contractType: contractType as SupportedNFTContractType,
+      contractAddress: contractAddress,
+      tokenId: tokenId,
+    };
   }
 
   throw new Error(`Invalid asset identifier provided: ${assetIdentifier}`);

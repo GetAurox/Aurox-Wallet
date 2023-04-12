@@ -34,7 +34,6 @@ export const SAFE_RPC_METHODS = [
 ];
 
 export const CACHED_RPC_METHODS = [
-  "eth_call",
   "eth_getBlockByHash",
   "eth_getBlockByNumber",
   "eth_getBlockTransactionCountByHash",

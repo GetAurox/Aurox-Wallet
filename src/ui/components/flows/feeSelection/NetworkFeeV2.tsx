@@ -1,4 +1,6 @@
-import { useState, MouseEvent } from "react";
+import { useState, MouseEvent, useMemo } from "react";
+import isEmpty from "lodash/isEmpty";
+import produce from "immer";
 
 import { Stack, Link, CircularProgress, Typography } from "@mui/material";
 
@@ -8,7 +10,8 @@ import { formatValueFromAmountAndPrice } from "ui/common/utils";
 import InfoTooltip from "ui/components/info/InfoTooltip";
 import FeeModalV2 from "ui/components/modals/FeeModal/FeeModalV2";
 
-import { useNativeTokenMarketTicker, useNetworkByIdentifier } from "ui/hooks";
+import { useLocalUserPreferences, useNativeTokenMarketTicker, useNetworkByIdentifier } from "ui/hooks";
+import { GasPresetSettings } from "ui/types";
 
 export interface NetworkFeeProps {
   networkIdentifier: string;
@@ -20,6 +23,7 @@ export default function NetworkFee(props: NetworkFeeProps) {
 
   const network = useNetworkByIdentifier(networkIdentifier);
   const ticker = useNativeTokenMarketTicker(networkIdentifier);
+  const [userPreferences, setUserPreferences] = useLocalUserPreferences();
 
   const [openFeeModal, setOpenFeeModal] = useState(false);
 
@@ -35,7 +39,25 @@ export default function NetworkFee(props: NetworkFeeProps) {
     setOpenFeeModal(false);
   };
 
-  const priceField = () => {
+  const handleDisableGasPresets = (event: MouseEvent) => {
+    event.preventDefault();
+
+    if (!general || !general.gasPresets) {
+      return;
+    }
+
+    setUserPreferences(
+      produce(draft => {
+        if (!draft.general || !draft.general.gasPresets) {
+          return draft;
+        }
+
+        draft.general.gasPresets[networkIdentifier].enabled = false;
+      }),
+    );
+  };
+
+  const priceField = useMemo(() => {
     if (ticker.priceUSD && feeManager?.feePriceInNativeCurrency) {
       return formatValueFromAmountAndPrice(feeManager.feePriceInNativeCurrency, parseFloat(ticker.priceUSD), "~$");
     }
@@ -45,7 +67,22 @@ export default function NetworkFee(props: NetworkFeeProps) {
     }
 
     return "--";
-  };
+  }, [feeManager?.feePriceInNativeCurrency, network, ticker.priceUSD]);
+
+  const { general } = userPreferences;
+
+  const feePreference = feeManager?.feePreference ?? "medium";
+
+  const showCustomGasWarning = useMemo(() => {
+    if (!general || !general.gasPresets) {
+      return false;
+    }
+    const isCorrectPreference = feePreference !== "custom";
+
+    const gasPresets = general.gasPresets[networkIdentifier];
+
+    return gasPresets?.enabled && isCorrectPreference && !isEmpty(gasPresets[feePreference]);
+  }, [feePreference, general, networkIdentifier]);
 
   return (
     <>
@@ -67,17 +104,25 @@ export default function NetworkFee(props: NetworkFeeProps) {
           </InfoTooltip>
         </Stack>
         <Stack direction="row" alignItems="center" spacing={0.5}>
-          <Typography variant="medium">{priceField()}</Typography>
+          <Typography variant="medium">{priceField}</Typography>
           {isEstimating && <CircularProgress sx={{ color: "theme.main", maxWidth: "20px", maxHeight: "20px" }} />}
           {feeManager && !isEstimating && network && (
-            <Typography variant="medium">
-              <Link href="#" underline="none" onClick={handleOpenFeeModal}>
-                Edit
-              </Link>
-            </Typography>
+            <Link variant="medium" href="#" underline="none" onClick={handleOpenFeeModal}>
+              Edit
+            </Link>
           )}
         </Stack>
       </Stack>
+      {showCustomGasWarning && (
+        <>
+          <Typography variant="medium" color="error" mt={1.5}>
+            You have custom gas setting enabled for this network.
+          </Typography>
+          <Link variant="medium" component="button" underline="always" alignSelf="start" onClick={handleDisableGasPresets}>
+            Click here to disable
+          </Link>
+        </>
+      )}
       {openFeeModal && feeManager && (
         <FeeModalV2 networkIdentifier={networkIdentifier} feeManager={feeManager} onClose={handleCloseFeeModal} />
       )}

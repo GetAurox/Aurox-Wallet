@@ -16,7 +16,7 @@ export interface RewardSystemContextValue {
   points: number | null;
   rewards: Reward[] | null;
   referralLink: string | null;
-  refereesCount: number | null;
+  refereesCount: { tier1RefereesCount: number | null; tier2RefereesCount: number | null; tier3RefereesCount: number | null } | null;
   oneTimeCampaignIdsTriggered: Set<OneTimeCampaignId>;
   triggerOneTimeCampaign: (campaignId: OneTimeCampaignId, args?: any[], kwargs?: any) => Promise<void>;
 }

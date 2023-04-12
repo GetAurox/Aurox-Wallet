@@ -4,7 +4,10 @@ import { EIP1193EmitterEvents, EIP1193EthereumProvider, EIP1193Event, EIP1193Req
 import { ErrorCodes, ProviderRpcError } from "common/errors";
 import { DOMActions, DOMEvents } from "common/dom";
 
+import { StreamProvider } from "./stream";
+
 export interface AuroxProviderConstructorOptions {
+  streamProvider: StreamProvider;
   handleProviderSwitchOnRequest: (request: EIP1193Request) => Promise<any>;
 }
 
@@ -12,6 +15,8 @@ export class AuroxProvider extends TypedEmitter<EIP1193EmitterEvents> implements
   _selectedAddress: string | null = null;
   _chainId: string | null = null;
   _networkVersion: string | null = null;
+
+  _streamProvider: StreamProvider;
 
   _handleProviderSwitchOnRequest: (request: EIP1193Request) => Promise<any>;
 
@@ -34,6 +39,8 @@ export class AuroxProvider extends TypedEmitter<EIP1193EmitterEvents> implements
 
     this._handleProviderSwitchOnRequest = options.handleProviderSwitchOnRequest;
 
+    this._streamProvider = options.streamProvider;
+
     const handler = (event: EIP1193Event) => {
       if (event.type === "connect") {
         this._chainId = event.data.chainId;
@@ -53,14 +60,27 @@ export class AuroxProvider extends TypedEmitter<EIP1193EmitterEvents> implements
         this._selectedAddress = null;
       }
 
+      if (event.type === "notification") {
+        // Also emit legacy `message` event
+        this.emit("message", event.data);
+      }
+
       this.emit(event.type, event.data as any);
     };
+
+    this._streamProvider.addListener("notification", handler);
 
     DOMEvents.ProviderUpdate.addListener(handler);
   }
 
   request = async (request: EIP1193Request): Promise<any> => {
     try {
+      const webSocketResponse = await this._streamProvider.handle(request, this.chainId);
+
+      if (webSocketResponse) {
+        return webSocketResponse;
+      }
+
       const result = await DOMActions.SendRPCRequest.perform(request);
 
       return assertLowerCaseAddressesExposedToDApp(request, result);

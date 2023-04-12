@@ -1,4 +1,4 @@
-import { ProviderManager, TrezorHelpers } from "common/wallet";
+import { ProviderManager } from "common/wallet";
 import { AccountInfo, BlockchainNetwork, ChainType } from "common/types";
 
 import { EVMSignerPopup } from "./EVMSignerPopup";
@@ -22,10 +22,6 @@ export class PopupSignerManager {
     const existingSigner = PopupSignerManager.#signers.get(getSignerKey(accountInfo, network));
 
     if (existingSigner) return existingSigner;
-
-    if (accountInfo.type === "hardware" && accountInfo.hardwareType === "trezor") {
-      TrezorHelpers.TrezorManifest.initialize();
-    }
 
     const provider = ProviderManager.getProvider(network);
 

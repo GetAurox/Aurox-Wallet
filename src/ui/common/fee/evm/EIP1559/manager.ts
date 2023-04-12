@@ -1,18 +1,21 @@
-import { BigNumber, constants } from "ethers";
-import { Deferrable, formatEther, parseUnits } from "ethers/lib/utils";
-import { Block, TransactionRequest } from "@ethersproject/abstract-provider";
-
 import pick from "lodash/pick";
+import { BigNumber, constants } from "ethers";
+import { Deferrable, formatEther, hexlify, parseUnits } from "ethers/lib/utils";
+import { Block, TransactionRequest } from "@ethersproject/abstract-provider";
 
 import { EVMSignerPopup } from "ui/common/connections";
 
 import { Matrix } from "common/utils";
 
+import { GasPresetSettings } from "ui/types";
+
 import { EVMFeePreference as FeePreference, TransactionType } from "../types";
 
 import { EVMFeeManagerInterface } from "../base";
 
-import { getMedian, humanizeValue, roundBigNumberToDecimals } from "../utils";
+import { changeByPercentage, getMedian, humanizeValue, roundBigNumberToDecimals } from "../utils";
+
+import { MINIMUM_GAS_LIMIT } from "../constants";
 
 import { FeeSettings, FeeConfigurationEIP1559, FeeHistory, MaxPriorityFeePerGasMap } from "./types";
 
@@ -21,6 +24,7 @@ export class EIP1559FeeManager implements EVMFeeManagerInterface<FeeConfiguratio
   #selectedFeePreference: FeePreference = "medium";
   #transaction: TransactionRequest;
   #signer: EVMSignerPopup;
+  #gasPresets?: GasPresetSettings;
 
   #blockNumber = 0;
   #userBalance = constants.Zero;
@@ -32,8 +36,22 @@ export class EIP1559FeeManager implements EVMFeeManagerInterface<FeeConfiguratio
   #gasEstimate: BigNumber | null = null;
   #maxPriorityFeePerGasHistory = new Matrix<string>([]);
 
-  constructor(transaction: TransactionRequest, signer: EVMSignerPopup) {
+  #defaultPresetByPreference = {
+    gasLimit: {
+      "low": 5,
+      "medium": 10,
+      "high": 20,
+    },
+    baseFee: {
+      "low": 0,
+      "medium": 12.5,
+      "high": 50,
+    },
+  };
+
+  constructor(transaction: TransactionRequest, signer: EVMSignerPopup, gasPresets?: GasPresetSettings) {
     this.#signer = signer;
+    this.#gasPresets = gasPresets;
     this.#transaction = pick(transaction, ["data", "from", "to", "value"]);
   }
 
@@ -99,12 +117,16 @@ export class EIP1559FeeManager implements EVMFeeManagerInterface<FeeConfiguratio
     };
   }
 
-  get feePriceInNativeCurrency() {
+  get feePrice() {
     if (!this.currentFeeSettings) return null;
 
-    const { maxFeePerGas, gasLimit } = this.currentFeeSettings;
+    const { gasLimit, maxFeePerGas } = this.currentFeeSettings;
 
-    const price = formatEther(maxFeePerGas.mul(gasLimit));
+    return gasLimit.mul(maxFeePerGas);
+  }
+
+  get feePriceInNativeCurrency() {
+    const price = formatEther(this.feePrice ?? constants.Zero);
 
     return Number(parseFloat(price).toPrecision(6));
   }
@@ -118,7 +140,19 @@ export class EIP1559FeeManager implements EVMFeeManagerInterface<FeeConfiguratio
   }
 
   async #getFeeHistory(numberOfBlocksToTake: number, percentiles = [25, 50, 75]) {
-    return (await this.#signer.provider.send("eth_feeHistory", [numberOfBlocksToTake, "latest", percentiles])) as FeeHistory;
+    try {
+      return (await this.#signer.provider.send("eth_feeHistory", [numberOfBlocksToTake, "latest", percentiles])) as FeeHistory;
+    } catch (error) {
+      console.error("Failed to get 'eth_feeHistory', attempting with block number in hex", error);
+    }
+
+    try {
+      return (await this.#signer.provider.send("eth_feeHistory", [hexlify(numberOfBlocksToTake), "latest", percentiles])) as FeeHistory;
+    } catch (error) {
+      console.error("Failed to get 'eth_feeHistory' with hexlified value, please report this issue..", error);
+    }
+
+    throw new Error("Failed to get fee history");
   }
 
   async #configureFees(block: Block) {
@@ -145,12 +179,10 @@ export class EIP1559FeeManager implements EVMFeeManagerInterface<FeeConfiguratio
       throw new Error("This is not EIP1559 compliant chain");
     }
 
-    const correctionFactor = maxPriorityFeePerGas.div(4);
-
     return [
       maxPriorityFeePerGas.toHexString(),
-      maxPriorityFeePerGas.add(correctionFactor).toHexString(),
-      maxPriorityFeePerGas.add(correctionFactor.mul(2)).toHexString(),
+      changeByPercentage(maxPriorityFeePerGas, 25).toHexString(),
+      changeByPercentage(maxPriorityFeePerGas, 50).toHexString(),
     ];
   }
 
@@ -187,20 +219,49 @@ export class EIP1559FeeManager implements EVMFeeManagerInterface<FeeConfiguratio
   }
 
   #configureFeesByPreference(gasLimit: BigNumber, baseFee: BigNumber, maxPriorityFeePerGasMap: any) {
-    gasLimit = gasLimit.add(gasLimit.div(2));
+    const getPreset = (
+      maxPriorityFeePerGas: BigNumber,
+      preference: Exclude<FeePreference, "custom">,
+    ): FeeConfigurationEIP1559<BigNumber> => {
+      const presetsEnabled = this.#gasPresets?.enabled ?? false;
 
-    const getPreset = (maxPriorityFeePerGas: BigNumber): FeeConfigurationEIP1559<BigNumber> => ({
-      type: TransactionType.EIP1559,
-      gasLimit: gasLimit,
-      maxFeePerGas: this.#calculateMaxFeePerGas(baseFee, maxPriorityFeePerGas),
-      maxPriorityFeePerGas,
-      baseFee,
-    });
+      const preferenceGasPresets = this.#gasPresets?.[preference] ?? {};
+
+      const gasLimitPresetEnabled = presetsEnabled && preferenceGasPresets.gasLimit !== undefined;
+      const baseFeePresetEnabled = presetsEnabled && preferenceGasPresets.baseFee !== undefined;
+      const maxPriorityFeePerGasPresetEnabled = presetsEnabled && preferenceGasPresets.priorityFee !== undefined;
+
+      const gasLimitPreset = BigNumber.from(preferenceGasPresets.gasLimit ?? 0);
+      const baseFeePreset = BigNumber.from(preferenceGasPresets.baseFee ?? 0);
+      const maxPriorityFeePerGasPreset = BigNumber.from(preferenceGasPresets.priorityFee ?? 0);
+
+      const baseFeeValue = baseFeePresetEnabled ? baseFeePreset : getBaseFeeByPreference(preference);
+      const gasLimitValue = gasLimitPresetEnabled ? gasLimitPreset : getGasLimitByPreference(preference);
+      const maxPriorityFeePerGasValue = maxPriorityFeePerGasPresetEnabled ? maxPriorityFeePerGasPreset : maxPriorityFeePerGas;
+
+      return {
+        type: TransactionType.EIP1559,
+        baseFee: baseFeeValue,
+        gasLimit: gasLimitValue,
+        maxPriorityFeePerGas: maxPriorityFeePerGasValue,
+        maxFeePerGas: this.#calculateMaxFeePerGas(baseFeeValue, maxPriorityFeePerGasValue),
+      };
+    };
+
+    const getGasLimitByPreference = (preference: Exclude<FeePreference, "custom">) => {
+      const percentage = gasLimit.eq(MINIMUM_GAS_LIMIT) ? 0 : this.#defaultPresetByPreference.gasLimit[preference];
+
+      return changeByPercentage(gasLimit, percentage);
+    };
+
+    const getBaseFeeByPreference = (preference: Exclude<FeePreference, "custom">) => {
+      return changeByPercentage(baseFee, this.#defaultPresetByPreference.baseFee[preference]);
+    };
 
     this.#feeSettings = {
-      low: getPreset(maxPriorityFeePerGasMap.low),
-      medium: getPreset(maxPriorityFeePerGasMap.medium),
-      high: getPreset(maxPriorityFeePerGasMap.high),
+      low: getPreset(maxPriorityFeePerGasMap.low, "low"),
+      medium: getPreset(maxPriorityFeePerGasMap.medium, "medium"),
+      high: getPreset(maxPriorityFeePerGasMap.high, "high"),
       custom: this.#feeSettings?.custom ?? null,
     };
   }
@@ -283,6 +344,6 @@ export class EIP1559FeeManager implements EVMFeeManagerInterface<FeeConfiguratio
   }
 
   #calculateMaxFeePerGas(baseFee: BigNumber, maxPriorityFeePerGas: BigNumber) {
-    return baseFee.mul(2).add(maxPriorityFeePerGas);
+    return baseFee.add(maxPriorityFeePerGas);
   }
 }

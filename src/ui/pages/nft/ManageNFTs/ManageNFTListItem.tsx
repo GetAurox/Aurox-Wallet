@@ -1,14 +1,13 @@
 import { memo, ChangeEvent } from "react";
-import { Link } from "react-router-dom";
 
 import { Typography, ListItem, ListItemButton, ListItemIcon, ListItemAvatar, ListItemText, Stack, Theme } from "@mui/material";
 
-import { useNetworkBlockchainExplorerLinkResolver } from "ui/hooks";
-import { collapseIdentifier } from "ui/common/utils";
 import { TokenDisplay } from "ui/types";
 
-import TokenAvatar from "ui/components/common/TokenAvatar";
 import Checkbox from "ui/components/common/Checkbox";
+
+import { IconPlaceholderNFT } from "ui/components/icons";
+import NFTAvatar from "ui/components/entity/nft/NFTAvatar";
 
 const sxStyles = {
   checkbox: {
@@ -39,7 +38,6 @@ const sxStyles = {
     alignSelf: "center",
     backgroundColor: (theme: Theme) => theme.palette.custom.grey["19"],
   },
-  address: { cursor: "pointer" },
 };
 
 export interface ManageTokenListItemProps {
@@ -51,19 +49,13 @@ export interface ManageTokenListItemProps {
 export default memo(function ManageTokenListItem(props: ManageTokenListItemProps) {
   const { nft, onSelect, selected } = props;
 
-  const { getContractAddressExplorerLink } = useNetworkBlockchainExplorerLinkResolver(nft.networkIdentifier);
-
-  let link: string | null = null;
-
-  if (nft.assetDefinition.type === "contract") {
-    link = getContractAddressExplorerLink(nft.assetDefinition.contractAddress);
-  }
-
   const handleSelect = (event: ChangeEvent) => {
     event.stopPropagation();
 
     onSelect(nft);
   };
+
+  const name = nft.name ? nft.name : "Error: Unable to get NFT information";
 
   return (
     <ListItem disablePadding>
@@ -72,7 +64,9 @@ export default memo(function ManageTokenListItem(props: ManageTokenListItemProps
           <Checkbox onChange={handleSelect} checked={selected} sx={sxStyles.checkbox} />
         </ListItemIcon>
         <ListItemAvatar sx={sxStyles.listItemAvatar}>
-          <TokenAvatar {...nft.img} networkIdentifier={nft.networkIdentifier} />
+          <NFTAvatar src={nft.img.src} alt={name}>
+            <IconPlaceholderNFT />
+          </NFTAvatar>
         </ListItemAvatar>
 
         <ListItemText
@@ -81,7 +75,7 @@ export default memo(function ManageTokenListItem(props: ManageTokenListItemProps
           primary={
             <Stack direction="row" columnGap={0.5} alignItems="center" overflow="hidden">
               <Typography variant="large" fontWeight={500} overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">
-                {nft.symbol}
+                {name}
               </Typography>
               {!nft.autoImported && (
                 <Typography sx={sxStyles.labelImported} color="text.secondary">
@@ -89,22 +83,6 @@ export default memo(function ManageTokenListItem(props: ManageTokenListItemProps
                 </Typography>
               )}
             </Stack>
-          }
-          secondary={
-            nft.assetDefinition.type !== "contract" ? undefined : (
-              <Link color="primary.main" to={link ?? ""} target="_blank" rel="noopener noreferrer">
-                {collapseIdentifier(nft.assetDefinition.contractAddress)}
-              </Link>
-            )
-          }
-        />
-        <ListItemText
-          sx={sxStyles.listItemText}
-          disableTypography
-          primary={
-            <Typography fontSize="16px" textAlign="right" fontWeight={500} lineHeight="20px" letterSpacing={0.5}>
-              1
-            </Typography>
           }
         />
       </ListItemButton>

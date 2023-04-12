@@ -1,4 +1,6 @@
 import { ethers } from "ethers";
+import { Interface } from "@ethersproject/abi";
+
 import moment from "moment";
 import orderBy from "lodash/orderBy";
 import minBy from "lodash/minBy";
@@ -11,12 +13,52 @@ import {
   TokenTransactionSide,
   TransactionStatus,
 } from "common/types";
-import { BigNumberTyped, EthereumAccountETHTransaction, EthereumAccountNFTTransfer, EthereumAccountTransaction } from "ui/types";
-import { formatValueUSD, formatPrice, formatAmount, ONE_HUNDRED_MILLIONS } from "ui/common/utils";
 import { networkNativeCurrencyData } from "common/config";
+import { ERC20__factory } from "common/wallet/typechain";
+import { ERC721__factory } from "common/wallet/typechain/factories/ERC721__factory";
+
+import { EthereumAccountETHTransaction, EthereumAccountNFTTransfer, EthereumAccountTransaction } from "ui/types";
+import { formatValueUSD, formatPrice, formatAmount, ONE_HUNDRED_MILLIONS } from "ui/common/utils";
 
 const txTokenListFormatDate = "MMM D";
 const txTokenFormatDate = "h:mm A [on] MMM D, YYYY";
+
+function getRecipientAddressFromData(data: string): string | null {
+  const functionHash = data.slice(2, 10);
+
+  if (!functionHash) {
+    return null;
+  }
+
+  const ERC1155_abi = JSON.stringify([
+    "function safeTransferFrom(address _from, address _to, uint256 _id, uint256 _value, bytes calldata _data)",
+  ]);
+
+  const functionHashToContractInterface: Record<string, Interface> = {
+    "a9059cbb": new Interface(ERC20__factory.abi),
+    "23b872dd": ERC721__factory.createInterface(),
+    "f242432a": new Interface(ERC1155_abi),
+    "9e5f9dc2": new Interface(ERC1155_abi),
+  };
+
+  const functionHashToFunctionName: Record<string, string> = {
+    "a9059cbb": "transfer",
+    "23b872dd": "transferFrom",
+    "f242432a": "safeTransferFrom",
+    "9e5f9dc2": "safeBatchTransferFrom",
+  };
+
+  const functionName = functionHashToFunctionName[functionHash];
+  const contractInterface = functionHashToContractInterface[functionHash];
+
+  if (!functionName || !contractInterface) {
+    return null;
+  }
+
+  const result = contractInterface.decodeFunctionData(functionName, data);
+
+  return functionName === "transfer" ? result[0] : result[1];
+}
 
 export const sideTitles: Record<TokenTransactionSide, string> = {
   sender: "Sent",
@@ -300,20 +342,22 @@ export function mapTokenTransactionToTokenTransactionDetails(
   const date = timestamp ? moment(timestamp).format(txTokenFormatDate) : "---";
 
   if (!("__typename" in tx)) {
-    const gasLimitHexString = (tx.transaction.gasLimit as unknown as BigNumberTyped).hex;
+    const gasLimitHexString = tx.transaction.gasLimit._hex;
     const gasLimit = Number(gasLimitHexString).toString();
 
-    let gasPriceSource: BigNumberTyped = { type: "BigNumber", hex: "0x0" };
+    let gasPriceSource = { _isBigNumber: true, _hex: "0x0" };
 
     if (tx.transaction.gasPrice) {
-      gasPriceSource = tx.transaction.gasPrice as unknown as BigNumberTyped;
+      gasPriceSource = tx.transaction.gasPrice;
     }
 
     if (tx.transaction.maxFeePerGas) {
-      gasPriceSource = tx.transaction.maxFeePerGas as unknown as BigNumberTyped;
+      gasPriceSource = tx.transaction.maxFeePerGas;
     }
 
-    const gasPriceHexString = gasPriceSource.hex;
+    const recipientAddress = getRecipientAddressFromData(tx.transaction.data);
+
+    const gasPriceHexString = gasPriceSource._hex;
     const gasPriceWEI = Number(gasPriceHexString ?? 0) ?? 0;
     const gasPrice = ethers.utils.formatUnits(gasPriceWEI, "gwei");
 
@@ -325,7 +369,7 @@ export function mapTokenTransactionToTokenTransactionDetails(
       totalCost: null,
       side: "sender",
       accountAddress: tx.transaction.from,
-      secondSideAddress: tx.transaction.to ?? tx.receipt?.to ?? "",
+      secondSideAddress: recipientAddress ?? tx.transaction.to ?? tx.receipt?.to ?? "",
       txCost: null,
       timestamp,
       gasLimit,

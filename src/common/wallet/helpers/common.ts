@@ -1,40 +1,4 @@
 import { ethers } from "ethers";
-import { v4 as uuid4 } from "uuid";
-
-import { HardwareSignerType } from "common/types";
-import { Wallet } from "common/operations";
-
-import { HdPath } from "../signerPaths";
-
-// Using this silly import path to prevent circular dependency issues
-import * as LedgerHelpers from "./LedgerHelpers";
-import * as TrezorHelpers from "./TrezorHelpers";
-
-const numAddresses = 5;
-
-export async function getHardwareAddressHandler(
-  hardwareWallet: HardwareSignerType,
-  walletIndex: number,
-  hdPath: HdPath,
-): Promise<Wallet.ImportHardwareSigner.Data[]> {
-  let addresses = [];
-  if (hardwareWallet === "ledger") {
-    addresses = await LedgerHelpers.getMultipleAddresses(walletIndex, numAddresses, hdPath);
-  } else if (hardwareWallet === "trezor") {
-    addresses = await TrezorHelpers.getMultipleAddresses(walletIndex, numAddresses, hdPath);
-  } else {
-    throw new Error("Missing implementation");
-  }
-
-  return addresses.map((details, index) => ({
-    ...details,
-    uuid: uuid4(),
-    alias: `${hardwareWallet} ${index}`,
-    type: "hardware",
-    hardwareType: hardwareWallet,
-    chainType: "evm",
-  }));
-}
 
 /**
  * This method takes in revert data coming from a contract call and decodes it to extract the string contents of the revert data.

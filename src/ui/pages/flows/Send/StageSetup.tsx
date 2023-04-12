@@ -1,7 +1,8 @@
-import { ChangeEvent, ReactNode } from "react";
+import { ChangeEvent, ReactNode, useState } from "react";
 
-import { Button, Stack, Box, Typography } from "@mui/material";
+import { Button, Stack, Box, Typography, IconButton } from "@mui/material";
 import WarningIcon from "@mui/icons-material/Warning";
+import RepeatOnIcon from "@mui/icons-material/RepeatOn";
 
 import { BlockchainNetwork } from "common/types";
 import { networkNativeCurrencyData } from "common/config";
@@ -10,6 +11,7 @@ import { useAddressIsContract, useNativeTokenMarketTicker } from "ui/hooks";
 import { isDomainName, isEthereumAddress } from "ui/common/validators";
 import { TokenDisplayWithTicker } from "ui/types";
 import { formatAmount } from "ui/common/utils";
+import { EVMFeeManager } from "ui/common/fee";
 
 import TokenAmountSelector from "ui/components/entity/token/TokenAmountSelector";
 import ApproximateFee from "ui/components/flows/feeSelection/ApproximateFee";
@@ -17,7 +19,8 @@ import CurrentNetworkInfo from "ui/components/flows/info/CurrentNetworkInfo";
 // import MemoInput from "ui/components/flows/info/MemoInput";
 import FormField from "ui/components/form/FormField";
 import ErrorText from "ui/components/form/ErrorText";
-import { EVMFeeManager } from "ui/common/fee";
+
+import WalletSelectorSendModal from "../WalletSelectorSendModal";
 
 export interface StageSetupProps {
   selectedToken: TokenDisplayWithTicker;
@@ -66,6 +69,8 @@ export default function StageSetup(props: StageSetupProps) {
     stepButtonDisabled,
   } = props;
 
+  const [isWalletSelectorOpen, setIsWalletSelectorOpen] = useState(false);
+
   const { addressIsContract: recipientIsContract } = useAddressIsContract(
     isEthereumAddress(recipientAddress) ? recipientAddress : null,
     selectedTokenNetwork?.identifier ?? null,
@@ -79,6 +84,19 @@ export default function StageSetup(props: StageSetupProps) {
 
   const handleRecipientChange = (event: ChangeEvent<HTMLInputElement>) => {
     onRecipientChange(event.target.value);
+  };
+
+  const handleWalletSelectorOpen = () => {
+    setIsWalletSelectorOpen(true);
+  };
+
+  const handleWalletSelectorClose = () => {
+    setIsWalletSelectorOpen(false);
+  };
+
+  const handleWalletSelectorSelect = (address: string) => {
+    onRecipientChange(address);
+    handleWalletSelectorClose();
   };
 
   let recipientResolvingResult: ReactNode = null;
@@ -119,6 +137,11 @@ export default function StageSetup(props: StageSetupProps) {
         autoComplete="off"
         value={recipient}
         onChange={handleRecipientChange}
+        endAdornment={
+          <IconButton onClick={handleWalletSelectorOpen}>
+            <RepeatOnIcon color="primary" />
+          </IconButton>
+        }
       />
       {recipientResolvingResult}
     </Box>
@@ -169,6 +192,7 @@ export default function StageSetup(props: StageSetupProps) {
       <Button sx={{ mt: "19px", mx: 2, mb: 2 }} variant="contained" onClick={stepButtonHandler} disabled={stepButtonDisabled}>
         Preview
       </Button>
+      <WalletSelectorSendModal open={isWalletSelectorOpen} onSelect={handleWalletSelectorSelect} onClose={handleWalletSelectorClose} />
     </>
   );
 }

@@ -1,20 +1,33 @@
 import { Fragment, SyntheticEvent, useCallback, useEffect, useMemo, useState } from "react";
-import isEqual from "lodash/isEqual";
 import sortBy from "lodash/sortBy";
+import isEqual from "lodash/isEqual";
+import orderBy from "lodash/orderBy";
+import partition from "lodash/partition";
+import difference from "lodash/difference";
 
 import { Box, Button, Tab, Tabs, IconButton, List, Divider } from "@mui/material";
 
 import { ImportedAsset } from "common/operations";
 import { applyTokenAssetVisibilityRules, getNetworkDefinitionFromIdentifier } from "common/utils";
 
-import { useActiveAccountBalances, useFuse, useImportedAssets, useTokensDisplayWithTickers } from "ui/hooks";
+import { useActiveAccountBalances, useEnabledNetworks, useFuse, useImportedAssets, useTokensDisplayWithTickers } from "ui/hooks";
 import { useHistoryState, useHistoryGoBack, useHistoryPush } from "ui/common/history";
-import { FlatTokenBalanceInfo, TokenDisplay } from "ui/types";
+import { FlatTokenBalanceInfo, TokenDisplay, TokenDisplayWithTicker } from "ui/types";
 
 import CustomControls from "ui/components/controls/CustomControls";
 import { IconUnion, IconFilterAlt } from "ui/components/icons";
 import Header from "ui/components/layout/misc/Header";
 import Search from "ui/components/common/Search";
+
+import {
+  arbitrumNetworkIdentifier,
+  avalancheNetworkIdentifier,
+  binanceSmartChainNetworkIdentifier,
+  ethereumMainnetNetworkIdentifier,
+  fantomNetworkIdentifier,
+  optimismNetworkIdentifier,
+  polygonNetworkIdentifier,
+} from "common/config";
 
 import ManageTokenFilterDialog, { VisibilityFilter } from "./ManageTokenFilterDialog";
 import ManageTokenListItem from "./ManageTokenListItem";
@@ -80,18 +93,31 @@ const sxStyles = {
 
 type VerifyFilter = "verified" | "unverified";
 
+const orderedNetworkIdentifiers = [
+  ethereumMainnetNetworkIdentifier,
+  binanceSmartChainNetworkIdentifier,
+  polygonNetworkIdentifier,
+  avalancheNetworkIdentifier,
+  arbitrumNetworkIdentifier,
+  optimismNetworkIdentifier,
+  fantomNetworkIdentifier,
+];
+
 export default function ManageTokens() {
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [selectedAssetKeys, setSelectedAssetKeys] = useState<string[]>([]);
+  const [unselectedAssetKeys, setUnselectedAssetKeys] = useState<string[]>([]);
+
   const goBack = useHistoryGoBack();
   const push = useHistoryPush();
 
   const [verifyFilter, setVerifyFilter] = useHistoryState<VerifyFilter>("verifyFilter", "verified");
   const [visibilityFilter, setVisibilityFilter] = useHistoryState<VisibilityFilter>("visibilityFilter", "show-all");
-
-  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
-  const [selectedAssetKeys, setSelectedAssetKeys] = useState<string[]>([]);
-  const [unselectedAssetKeys, setUnselectedAssetKeys] = useState<string[]>([]);
+  const enabledNetworks = useEnabledNetworks();
 
   const showVerified = verifyFilter === "verified";
+
+  const enabledNetworkIdentifiers = useMemo(() => enabledNetworks?.map(network => network.identifier), [enabledNetworks]);
 
   const balances = useActiveAccountBalances();
   const importedAssets = useImportedAssets();
@@ -138,6 +164,45 @@ export default function ManageTokens() {
     [tokens],
   );
 
+  const ordered = useMemo(() => {
+    if (showVerified) {
+      return fuzzyResults;
+    }
+
+    type FuzzyToken = {
+      item: TokenDisplayWithTicker;
+      refIndex: number;
+    };
+
+    const [tokensWithBalance, tokensWithoutBalance] = partition(fuzzyResults, token => Number(token.item.balance) > 0);
+
+    const sortedTokensWithBalance = orderBy(tokensWithBalance, token => Number(token.item.balance), "desc");
+
+    const otherEnabledNetworkIdentifiers = difference(enabledNetworkIdentifiers, orderedNetworkIdentifiers);
+
+    const prioritizedNetworkIdentifiers = [...orderedNetworkIdentifiers, ...otherEnabledNetworkIdentifiers];
+
+    let tokensWithoutBalanceByNetwork = tokensWithoutBalance;
+
+    const sortedTokensWithoutBalanceByNetwork: FuzzyToken[] = [];
+
+    // Sort tokens without balance by network priority
+    for (const networkIdentifier of prioritizedNetworkIdentifiers) {
+      const [tokens, otherTokens] = partition(tokensWithoutBalanceByNetwork, token => token.item.networkIdentifier === networkIdentifier);
+
+      sortedTokensWithoutBalanceByNetwork.push(...orderBy(tokens, fuzzyToken => fuzzyToken.item.name.toLowerCase()));
+
+      tokensWithoutBalanceByNetwork = otherTokens;
+    }
+
+    // Sort remaining tokens without balance by name alphabetically
+    const sortedOtherTokensWithoutBalance: FuzzyToken[] = orderBy(tokensWithoutBalanceByNetwork, fuzzyToken =>
+      fuzzyToken.item.name.toLowerCase(),
+    );
+
+    return [...sortedTokensWithBalance, ...sortedTokensWithoutBalanceByNetwork, ...sortedOtherTokensWithoutBalance];
+  }, [enabledNetworkIdentifiers, fuzzyResults, showVerified]);
+
   const disableSave = isEqual(sortBy(currentlyVisibleAssetKeys), sortBy(selectedAssetKeys));
 
   useEffect(() => {
@@ -182,7 +247,7 @@ export default function ManageTokens() {
       const isChanged = applyTokenAssetVisibilityRules(tokenToUpdate) !== isSelected;
 
       if (isChanged) {
-        ImportedAsset.SetVisibility.perform(tokenToUpdate.key, !isSelected ? "hidden" : "force-show");
+        ImportedAsset.SetVisibility.perform(tokenToUpdate.key, !isSelected ? "hidden" : "force-show", "token");
       }
     }
 
@@ -206,10 +271,10 @@ export default function ManageTokens() {
         </Tabs>
       </Box>
       <List sx={sxStyles.list}>
-        {fuzzyResults.map(({ item: token }, index) => (
+        {ordered.map(({ item: token }, index) => (
           <Fragment key={token.key}>
             <ManageTokenListItem token={token} onSelect={handleSelect} selected={selectedAssetKeys.includes(token.key)} />
-            {index + 1 !== fuzzyResults.length && <Divider component="li" variant="middle" sx={sxStyles.divider} />}
+            {index + 1 !== ordered.length && <Divider component="li" variant="middle" sx={sxStyles.divider} />}
           </Fragment>
         ))}
       </List>

@@ -102,7 +102,7 @@ const FormField = forwardRef((props: FormFieldProps, ref: Ref<unknown>) => {
         {start}
         <InputBase
           {...rest}
-          ref={ref}
+          inputRef={ref}
           id={`field_${id}`}
           onBlur={handleBlur}
           onChange={handleChange}

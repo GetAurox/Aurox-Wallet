@@ -6,11 +6,11 @@ import { Pagination, Stack, Typography } from "@mui/material";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 import { DApp as DAppEvents } from "common/events";
-import { createNetworkIdentifier, isApproval } from "common/utils";
+import { createNetworkIdentifier, getNetworkDefinitionFromIdentifier, isApproval } from "common/utils";
 import { Operation } from "common/types";
 
 import { useCurrentTabDappConnectionInfo, useDAppOperations, useIsWalletUnlocked, useLocalUserPreferences } from "ui/hooks";
-import { ETHEREUM_MAINNET_CHAIN_ID } from "common/config";
+import { alchemySimulationSupportedChains, ETHEREUM_MAINNET_CHAIN_ID } from "common/config";
 
 import Connect from "ui/pages/dapp/Connect";
 import RegularTransaction from "ui/pages/transaction/RegularTransaction";
@@ -20,8 +20,6 @@ import SignTypedMessage from "ui/pages/sign/SignTypedMessage";
 
 import { theme } from "ui/common/theme";
 import { useHistoryReset } from "ui/common/history";
-
-import { ERC20Approval } from "ui/common/tokens";
 
 import NetworkAdd from "ui/pages/settings/Networks/NetworkAdd";
 import NetworkEnable from "ui/pages/settings/Networks/NetworkAdd/NetworkEnable";
@@ -104,9 +102,11 @@ export default function OperationController(props: OperationControllerProps) {
     }
 
     if (selectedOperation.operationType === "transact") {
-      const mainnetIdentifier = createNetworkIdentifier("evm", ETHEREUM_MAINNET_CHAIN_ID);
+      const { chainId } = getNetworkDefinitionFromIdentifier(selectedOperation.networkIdentifier);
 
-      if (dappSimulationEnabled && !selectedOperation.isSimulated && selectedOperation.networkIdentifier === mainnetIdentifier) {
+      const simulationSupported = chainId in alchemySimulationSupportedChains;
+
+      if (dappSimulationEnabled && !selectedOperation.isSimulated && simulationSupported) {
         return (
           <SimulateTransaction
             key={selectedOperation.id}
@@ -117,9 +117,7 @@ export default function OperationController(props: OperationControllerProps) {
       }
 
       if (isApproval(selectedOperation.transactionPayload.data)) {
-        const approval = new ERC20Approval(selectedOperation.transactionPayload);
-
-        return <TokenApproval key={selectedOperation.id} operation={selectedOperation} approval={approval} />;
+        return <TokenApproval key={selectedOperation.id} operation={selectedOperation} />;
       }
 
       return <RegularTransaction key={selectedOperation.id} operation={selectedOperation} />;

@@ -3,7 +3,7 @@ import { TokenDisplayWithTicker } from "ui/types";
 import { ETHEREUM_MAINNET_CHAIN_ID } from "common/config/constants";
 import { networkNativeCurrencyData } from "common/config/web3";
 
-import { UNSDomainRecordType } from "common/types";
+import { NFTItem, UNSDomainRecordType } from "common/types";
 
 import { createNetworkIdentifier } from "./network";
 

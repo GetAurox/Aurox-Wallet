@@ -73,7 +73,15 @@ function aurox_inject_umbrella() {
     });
   };
 
-  const events: EIP1193EventType[] = ["chainChanged", "accountsChanged", "connect", "providerChanged", "disconnect"];
+  const events: EIP1193EventType[] = [
+    "chainChanged",
+    "accountsChanged",
+    "connect",
+    "providerChanged",
+    "disconnect",
+    "notification",
+    "message",
+  ];
 
   class UmbrellaProvider implements UmbrellaEIP1193EthereumProvider {
     private _targetProvider: EIP1193EthereumProvider | null = null;
@@ -241,15 +249,15 @@ function aurox_inject_umbrella() {
     addListener = <T extends EIP1193EventType>(event: T, handler: EIP1193EmitterEvents[T]) => {
       debugLog(`Registering handler on event: "${event}"`);
 
-      let listerners = this._listeners.get(event);
+      let listeners = this._listeners.get(event);
 
-      if (!listerners) {
-        listerners = [];
+      if (!listeners) {
+        listeners = [];
 
-        this._listeners.set(event, listerners);
+        this._listeners.set(event, listeners);
       }
 
-      listerners.push(handler);
+      listeners.push(handler);
     };
 
     on = this.addListener;
@@ -257,29 +265,29 @@ function aurox_inject_umbrella() {
     prependListener = <T extends EIP1193EventType>(event: T, handler: EIP1193EmitterEvents[T]) => {
       debugLog(`Registering handler and prepending on event: "${event}"`);
 
-      let listerners = this._listeners.get(event);
+      let listeners = this._listeners.get(event);
 
-      if (!listerners) {
-        listerners = [];
+      if (!listeners) {
+        listeners = [];
 
-        this._listeners.set(event, listerners);
+        this._listeners.set(event, listeners);
       }
 
-      listerners.unshift(handler);
+      listeners.unshift(handler);
     };
 
     removeListener = <T extends EIP1193EventType>(event: T, handler: EIP1193EmitterEvents[T]) => {
       debugLog(`Removing handler from event: "${event}"`);
 
-      const listerners = this._listeners.get(event);
+      const listeners = this._listeners.get(event);
 
-      if (listerners) {
-        const newListerners = listerners.filter(listener => handler !== ((listener as any).__original || listener));
+      if (listeners) {
+        const newListeners = listeners.filter(listener => handler !== ((listener as any).__original || listener));
 
-        if (newListerners.length === 0) {
+        if (newListeners.length === 0) {
           this._listeners.delete(event);
-        } else if (newListerners.length !== listerners.length) {
-          this._listeners.set(event, newListerners);
+        } else if (newListeners.length !== listeners.length) {
+          this._listeners.set(event, newListeners);
         }
       }
     };
@@ -289,12 +297,12 @@ function aurox_inject_umbrella() {
     once = <T extends EIP1193EventType>(event: T, handler: EIP1193EmitterEvents[T]) => {
       debugLog(`Registering once handler on event: "${event}"`);
 
-      let listerners = this._listeners.get(event);
+      let listeners = this._listeners.get(event);
 
-      if (!listerners) {
-        listerners = [];
+      if (!listeners) {
+        listeners = [];
 
-        this._listeners.set(event, listerners);
+        this._listeners.set(event, listeners);
       }
 
       const augmentedHandler = (...args: any[]) => {
@@ -305,18 +313,18 @@ function aurox_inject_umbrella() {
 
       (augmentedHandler as any).__original = handler;
 
-      listerners.push(augmentedHandler);
+      listeners.push(augmentedHandler);
     };
 
     prependOnceListener = <T extends EIP1193EventType>(event: T, handler: EIP1193EmitterEvents[T]) => {
       debugLog(`Registering once handler and prepending on event: "${event}"`);
 
-      let listerners = this._listeners.get(event);
+      let listeners = this._listeners.get(event);
 
-      if (!listerners) {
-        listerners = [];
+      if (!listeners) {
+        listeners = [];
 
-        this._listeners.set(event, listerners);
+        this._listeners.set(event, listeners);
       }
 
       const augmentedHandler = (...args: any[]) => {
@@ -327,21 +335,21 @@ function aurox_inject_umbrella() {
 
       (augmentedHandler as any).__original = handler;
 
-      listerners.unshift(augmentedHandler);
+      listeners.unshift(augmentedHandler);
     };
 
     removeOnceListener = <T extends EIP1193EventType>(event: T, handler: EIP1193EmitterEvents[T]) => {
       debugLog(`Removing once handler from event: "${event}"`);
 
-      const listerners = this._listeners.get(event);
+      const listeners = this._listeners.get(event);
 
-      if (listerners) {
-        const newListerners = listerners.filter(listener => listener !== handler);
+      if (listeners) {
+        const newListeners = listeners.filter(listener => listener !== handler);
 
-        if (newListerners.length === 0) {
+        if (newListeners.length === 0) {
           this._listeners.delete(event);
-        } else if (newListerners.length !== listerners.length) {
-          this._listeners.set(event, newListerners);
+        } else if (newListeners.length !== listeners.length) {
+          this._listeners.set(event, newListeners);
         }
       }
     };
@@ -636,7 +644,7 @@ function aurox_inject_umbrella() {
   let currentWeb3Value = proxifyWeb3Candidate({});
 
   Object.defineProperty(window, "web3", {
-    configurable: false,
+    configurable: true,
     get() {
       debugLog("Accessing the [deprecated] window.web3 object");
 

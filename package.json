@@ -75,7 +75,8 @@
     "tweetnacl": "1.0.3",
     "use-clipboard-copy": "0.2.0",
     "uuid": "9.0.0",
-    "validator": "13.7.0"
+    "validator": "13.7.0",
+    "use-nft": "0.12.0"
   },
   "devDependencies": {
     "@pmmmwh/react-refresh-webpack-plugin": "0.5.8",

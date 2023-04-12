@@ -39,7 +39,11 @@ export function RewardSystemContextProvider(props: RewardSystemContextProviderPr
   const [points, setPoints] = useState<number | null>(null);
   const [rewards, setRewards] = useState<Reward[] | null>(null);
   const [referralLink, setReferralLink] = useState<string | null>(null);
-  const [refereesCount, setRefereesCount] = useState<number | null>(null);
+  const [refereesCount, setRefereesCount] = useState<{
+    tier1RefereesCount: number | null;
+    tier2RefereesCount: number | null;
+    tier3RefereesCount: number | null;
+  } | null>(null);
 
   const initialize = useCallback(async (address: string, uuid: string) => {
     async function onChallenge(session: Session, method: string, extra: any) {
@@ -240,7 +244,15 @@ export function RewardSystemContextProvider(props: RewardSystemContextProviderPr
         }
 
         if (result[5].status === "fulfilled") {
-          setRefereesCount(result[5].value?.kwargs.count ?? null);
+          setRefereesCount(
+            result[5].value?.kwargs
+              ? {
+                  tier1RefereesCount: result[5].value?.kwargs.tier1_referees_count ?? null,
+                  tier2RefereesCount: result[5].value?.kwargs.tier2_referees_count ?? null,
+                  tier3RefereesCount: result[5].value?.kwargs.tier3_referees_count ?? null,
+                }
+              : null,
+          );
         }
       } catch (error) {
         console.error("Failed to execute procedure(s)", error);

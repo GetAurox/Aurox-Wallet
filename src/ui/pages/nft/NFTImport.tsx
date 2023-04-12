@@ -1,4 +1,4 @@
-import { useState, ChangeEvent, useEffect } from "react";
+import { useState, ChangeEvent, useEffect, useRef } from "react";
 
 import { Theme, Alert, AlertColor, Box, Button, Typography } from "@mui/material";
 
@@ -6,7 +6,7 @@ import { createAssetKey, getAssetIdentifierFromDefinition } from "common/utils";
 import { ImportedAsset } from "common/operations";
 import { ethereumMainnetNetworkIdentifier } from "common/config";
 
-import { useEnabledNetworks, useTokenInformation } from "ui/hooks";
+import { useActiveAccountNetworkAddress, useDebounce, useEnabledNetworks } from "ui/hooks";
 
 import { isEthereumAddress } from "ui/common/validators";
 import { useHistoryGoBack } from "ui/common/history";
@@ -18,18 +18,16 @@ import NetworkIdentifierPickerModal from "ui/components/modals/NetworkIdentifier
 import { IconArrowDownIOS } from "ui/components/icons";
 import DefaultControls from "ui/components/controls/DefaultControls";
 
+import { useNFTInformation } from "ui/hooks/misc/useNFTInformation";
+
 interface FormState {
   contractAddress: string;
-  symbol: string;
-  name: string;
-  decimals: number | null;
+  id: string;
 }
 
 const defaultFormState: FormState = {
   contractAddress: "",
-  symbol: "",
-  name: "",
-  decimals: null,
+  id: "",
 };
 
 const sxStyles = {
@@ -52,8 +50,17 @@ const sxStyles = {
 
 export default function NFTImport() {
   const [formState, setFormState] = useState(defaultFormState);
+
   const [manuallyEdited, setManuallyEdited] = useState(false);
+
   const [status, setStatus] = useState<{ severity: AlertColor; text: string } | null>(null);
+
+  const [focus, setFocus] = useState<null | "address" | "id">(null);
+
+  const idRef = useRef<HTMLInputElement>(null);
+
+  const addressRef = useRef<HTMLInputElement>(null);
+
   const [selectedNetworkIdentifier, setSelectedNetworkIdentifier] = useState(ethereumMainnetNetworkIdentifier);
 
   const [openNetworksModal, setOpenNetworksModal] = useState(false);
@@ -62,23 +69,23 @@ export default function NFTImport() {
 
   const networks = useEnabledNetworks();
 
+  const activeAccount = useActiveAccountNetworkAddress();
+
   const selectedNetwork = networks?.find(network => network.identifier === selectedNetworkIdentifier);
 
-  const { loading, error, tokenInformation } = useTokenInformation(
-    isEthereumAddress(formState.contractAddress) ? formState.contractAddress : null,
+  const debouncedContractAddress = useDebounce(formState.contractAddress, 300);
+
+  const debouncedTokenId = useDebounce(formState.id, 1000);
+
+  const { loading, error, tokenInformation } = useNFTInformation(
+    isEthereumAddress(debouncedContractAddress) ? debouncedContractAddress : null,
+    activeAccount,
+    debouncedTokenId !== "" ? debouncedTokenId : null,
     selectedNetwork?.identifier ?? null,
   );
 
   const handleOpenNetworkModal = () => setOpenNetworksModal(true);
   const handleCloseNetworkModal = () => setOpenNetworksModal(false);
-
-  useEffect(() => {
-    if (isEthereumAddress(formState.contractAddress) && !manuallyEdited) {
-      const { name, symbol, decimals } = tokenInformation ?? defaultFormState;
-
-      setFormState(prevState => ({ ...prevState, name, symbol, decimals }));
-    }
-  }, [tokenInformation, manuallyEdited, formState.contractAddress]);
 
   useEffect(() => {
     if (loading) {
@@ -90,35 +97,45 @@ export default function NFTImport() {
     }
   }, [loading, error]);
 
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+
+    if (!!formState.id && !!formState.contractAddress) {
+      timeout = setTimeout(() => {
+        if (focus === "id") {
+          idRef?.current?.focus();
+        } else if (focus === "address") {
+          addressRef?.current?.focus();
+        }
+      }, 100);
+    }
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [focus, tokenInformation, loading, error, formState.id, formState.contractAddress]);
+
   const handleContractAddressChange = (event: ChangeEvent<HTMLInputElement>) => {
     setFormState(prevState => ({ ...prevState, contractAddress: event.target.value }));
 
+    setFocus("address");
+
     setManuallyEdited(false);
   };
-  const handleSymbolChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setFormState(prevState => ({ ...prevState, symbol: event.target.value }));
+
+  const handleIdChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setFormState(prevState => ({ ...prevState, id: event.target.value }));
+
+    setFocus("id");
 
     setManuallyEdited(true);
   };
-  const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setFormState(prevState => ({ ...prevState, name: event.target.value }));
 
-    setManuallyEdited(true);
-  };
-  const handleDecimalsChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const newDecimals = Number(event.target.value);
-
-    const value = !event.target.value || Number.isNaN(newDecimals) ? null : newDecimals;
-
-    setFormState(prevState => ({ ...prevState, decimals: value }));
-
-    setManuallyEdited(true);
-  };
   const handleNetworkSelect = (identifier: string) => {
     if (selectedNetworkIdentifier !== identifier) {
       setManuallyEdited(false);
 
-      setFormState(prevState => ({ ...prevState, name: "", symbol: "", decimals: null }));
+      setFormState(prevState => ({ ...prevState }));
 
       setSelectedNetworkIdentifier(identifier);
     }
@@ -130,9 +147,8 @@ export default function NFTImport() {
     if (
       !selectedNetwork ||
       !isEthereumAddress(formState.contractAddress) ||
-      formState.decimals === null ||
-      !formState.name.trim() ||
-      !formState.symbol.trim()
+      !tokenInformation?.contractType ||
+      !tokenInformation?.metadata
     ) {
       return;
     }
@@ -144,26 +160,33 @@ export default function NFTImport() {
       setStatus({ severity: "info", text: "Importing NFT..." });
 
       const assetIdentifier = getAssetIdentifierFromDefinition({
-        type: "contract",
-        contractType: "ERC20",
+        type: "nft",
+        contractType: tokenInformation.contractType,
         contractAddress: sanitizedAddress,
+        tokenId: formState.id,
       });
 
       await ImportedAsset.ImportNewAsset.perform({
         key: createAssetKey(selectedNetwork.identifier, assetIdentifier),
         assetIdentifier,
         networkIdentifier: selectedNetwork.identifier,
-        contractType: "ERC20",
+        contractType: tokenInformation.contractType,
         contractAddress: sanitizedAddress,
         type: "nft",
-        symbol: formState.symbol,
-        name: formState.name,
-        decimals: formState.decimals,
+        symbol: "",
+        name: tokenInformation.metadata.name,
+        decimals: 0,
         // We treat user imported assets as trusted, therefore, even if we think they are unverified, we should show it anyway
         visibility: "force-show",
         // Anything the user imports is de-facto verified until our backend confirms otherwise
         verified: true,
         autoImported: false,
+        metadata: {
+          tokenId: formState.id,
+          image: tokenInformation.metadata.image,
+          updatedAt: Date.now(),
+          accountAddress: activeAccount ?? "",
+        },
       });
 
       setStatus(null);
@@ -174,8 +197,7 @@ export default function NFTImport() {
     }
   };
 
-  const valid =
-    isEthereumAddress(formState.contractAddress) && formState.decimals !== null && formState.name.trim() && formState.symbol.trim();
+  const valid = isEthereumAddress(formState.contractAddress) && selectedNetwork && tokenInformation !== null;
 
   return (
     <>
@@ -211,21 +233,11 @@ export default function NFTImport() {
           label="NFT Contract Address"
           value={formState.contractAddress}
           onChange={handleContractAddressChange}
+          ref={addressRef}
           disabled={status?.severity === "info"}
         />
         <Box mt={2}>
-          <FormField label="NFT Symbol" value={formState.symbol} onChange={handleSymbolChange} disabled={status?.severity === "info"} />
-        </Box>
-        <Box mt={2}>
-          <FormField label="NFT Name" value={formState.name} onChange={handleNameChange} disabled={status?.severity === "info"} />
-        </Box>
-        <Box mt={2}>
-          <FormField
-            label="NFT Decimals"
-            value={String(formState.decimals ?? "")}
-            onChange={handleDecimalsChange}
-            disabled={status?.severity === "info"}
-          />
+          <FormField label="NFT ID" value={formState.id} onChange={handleIdChange} disabled={status?.severity === "info"} ref={idRef} />
         </Box>
       </Box>
 

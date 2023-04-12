@@ -3,6 +3,7 @@ export const SERVICE_WORKER_FILENAME = "service_worker.js";
 export const CONTENT_SCRIPT_FILENAME = "content_script.js";
 export const INJECT_SCRIPT_FILENAME = "inject_script.js";
 export const PHISHING_FILENAME = "phishing.js";
+export const TWITTER_SCRIPT_FILENAME = "twitter_script.js";
 
 export const POPUP_FILENAME = "popup.html";
 
@@ -17,6 +18,7 @@ export const SERVICE_WORKER_URL = chrome.runtime.getURL(SERVICE_WORKER_FILENAME)
 export const CONTENT_SCRIPT_URL = chrome.runtime.getURL(CONTENT_SCRIPT_FILENAME);
 export const INJECT_SCRIPT_URL = chrome.runtime.getURL(INJECT_SCRIPT_FILENAME);
 export const PHISHING_URL = chrome.runtime.getURL(PHISHING_FILENAME);
+export const TWITTER_SCRIPT_URL = chrome.runtime.getURL(TWITTER_SCRIPT_FILENAME);
 
 export const POPUP_URL = chrome.runtime.getURL(POPUP_FILENAME);
 

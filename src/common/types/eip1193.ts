@@ -11,7 +11,9 @@ export type EIP1193Event =
   | { type: "accountsChanged"; data: string[] }
   | { type: "connect"; data: { chainId: string } }
   | { type: "providerChanged"; data: { preferAurox: boolean } }
-  | { type: "disconnect"; data?: string | null };
+  | { type: "disconnect"; data?: string | null }
+  | { type: "message"; data?: any }
+  | { type: "notification"; data?: any };
 
 export type EIP1193EventType = EIP1193Event["type"];
 

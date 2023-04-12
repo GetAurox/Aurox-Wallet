@@ -1,6 +1,7 @@
 import { TransactionResponse } from "@ethersproject/abstract-provider";
 import { EVMTransactions } from "common/operations";
 import { EVMTransactionStatus, RawTransaction, TransactionRequest, SendTransactionMetadata } from "common/types";
+import { GasPresetSettings } from "ui/types";
 
 import { EVMSignerPopup } from "../connections";
 import { EVMFeeService } from "../fee";
@@ -26,12 +27,12 @@ export class EVMTransactionManager extends EVMFeeService {
   /** Initializes the fee manager and determines the transaction type
    * @note Builder method
    */
-  async withFees(): Promise<this> {
+  async withFees(gasPresets?: GasPresetSettings): Promise<this> {
     if (this.#isInitialized) {
       throw new Error("Transaction manager is already initialized");
     }
 
-    await super.initialize(this.#transaction, this.#signer);
+    await super.initialize(this.#transaction, this.#signer, gasPresets);
 
     this.#isInitialized = true;
 
