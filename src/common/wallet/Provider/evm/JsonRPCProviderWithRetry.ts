@@ -205,7 +205,11 @@ export class JsonRPCProviderWithRetry extends ethers.providers.JsonRpcProvider {
 
     // Only update the cached clone when required
     if (!this.#clonedRPCProvider || optimalConnection.url !== this.#clonedRPCProvider.connection.url) {
-      this.#clonedRPCProvider = new ethers.providers.JsonRpcProvider(optimalConnection.url);
+      if (optimalConnection.url.includes("alchemy") || optimalConnection.url.includes("infura")) {
+        this.#clonedRPCProvider = new ethers.providers.JsonRpcBatchProvider(optimalConnection.url);
+      } else {
+        this.#clonedRPCProvider = new ethers.providers.JsonRpcProvider(optimalConnection.url);
+      }
     }
 
     try {

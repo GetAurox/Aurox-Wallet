@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { v4 as uuid4 } from "uuid";
 
 import range from "lodash/range";
 import omit from "lodash/omit";
@@ -7,7 +8,6 @@ import TrezorConnect, { EthereumTransaction, EthereumTransactionEIP1559 } from "
 
 import { HardwareSignerAccountInfo, SignTypedDataPayload, TransactionRequest } from "common/types";
 import { getEVMSignerPath, HdPath } from "common/wallet";
-import { HardwarePathResult } from "common/wallet/helpers/types";
 
 import { HardwareServiceBase } from "./base";
 
@@ -39,6 +39,34 @@ export class TrezorService implements HardwareServiceBase {
 
   async close() {
     TrezorConnect.dispose();
+  }
+
+  async getMultipleAddresses(startIndex: number, numAddresses: number, hdPath: HdPath) {
+    const result = await TrezorConnect.ethereumGetAddress({
+      bundle: range(numAddresses).map((_, idx) => ({
+        path: getEVMSignerPath(startIndex + idx, hdPath),
+        showOnTrezor: false,
+      })),
+    });
+
+    if (!result.success) {
+      throw new Error(result.payload.error);
+    }
+
+    const addresses = result.payload.map((item, idx) => ({
+      address: item.address,
+      path: item.serializedPath,
+      accountNumber: startIndex + idx,
+    }));
+
+    return addresses.map<HardwareSignerAccountInfo>((details, index) => ({
+      ...details,
+      uuid: uuid4(),
+      alias: `Trezor Account ${index + 1}`,
+      type: "hardware",
+      hardwareType: "trezor",
+      chainType: "evm",
+    }));
   }
 
   async signTransaction(account: HardwareSignerAccountInfo, transaction: TransactionRequest) {
@@ -134,25 +162,6 @@ export class TrezorService implements HardwareServiceBase {
     }
 
     return result.payload.address;
-  }
-
-  async getMultipleAddresses(startAccountNumber: number, numAddresses: number, hdPath: HdPath): Promise<HardwarePathResult[]> {
-    const result = await TrezorConnect.ethereumGetAddress({
-      bundle: range(numAddresses).map((_, idx) => ({
-        path: getEVMSignerPath(startAccountNumber + idx, hdPath),
-        showOnTrezor: false,
-      })),
-    });
-
-    if (!result.success) {
-      throw new Error(result.payload.error);
-    }
-
-    return result.payload.map((item, idx) => ({
-      address: item.address,
-      path: item.serializedPath,
-      accountNumber: startAccountNumber + idx,
-    }));
   }
 
   #convertTransactionRequestToTrezorFormat(transaction: Required<TransactionRequest>): EthereumTransaction | EthereumTransactionEIP1559 {

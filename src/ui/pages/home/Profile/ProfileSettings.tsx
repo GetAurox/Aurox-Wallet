@@ -5,7 +5,8 @@ import {
   InfoOutlined as InfoOutlinedIcon,
   CheckCircleOutline as CheckCircleOutlineIcon,
 } from "@mui/icons-material";
-import ListItem from "ui/components/common/CommonListItem";
+
+import CommonListItem from "ui/components/common/CommonListItem";
 
 import { IconArrow, IconNetworks, IconPassword, IconRecovery, IconSecurity, IconTestnet, IconGeneral } from "ui/components/icons";
 
@@ -30,7 +31,7 @@ export default function ProfileSettings() {
     <>
       <List disablePadding>
         {settingsConfig.map((setting, index) => (
-          <ListItem
+          <CommonListItem
             key={index}
             spacing={1.5}
             dividerVariant="middle"

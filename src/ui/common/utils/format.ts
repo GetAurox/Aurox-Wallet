@@ -1,3 +1,4 @@
+import { isNaN } from "lodash";
 import numbro from "numbro";
 
 export const TEN_MILLIONS = 1e7;
@@ -42,7 +43,11 @@ export function getReasonableMantissa(value: number | string) {
   }
 }
 
-export function formatPrice(value: number | string, options?: numbro.Format) {
+export function formatPrice(value: number | string, options?: numbro.Format): string {
+  if (isNaN(Number(value))) {
+    return formatPrice(0, options);
+  }
+
   return numbro(value).format({
     mantissa: getReasonableMantissa(value),
     thousandSeparated: true,

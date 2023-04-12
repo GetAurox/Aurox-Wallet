@@ -1,6 +1,4 @@
-import { useState, ReactNode } from "react";
-
-import { Transaction, Result } from "pocket-universe-js";
+import { useState, ReactNode, useMemo } from "react";
 
 import { Stack, Box, Button, CircularProgress, Typography } from "@mui/material";
 
@@ -14,16 +12,21 @@ import DefaultControls from "ui/components/controls/DefaultControls";
 import CustomControls from "ui/components/controls/CustomControls";
 import AlertStatus from "ui/components/common/AlertStatus";
 
-import { useDocumentTitle, useLocalUserPreferences } from "ui/hooks";
+import { useDAppOperations, useDocumentTitle, useLocalUserPreferences } from "ui/hooks";
 
-import { simulationIsRevert, simulationIsSuccess } from "./guards";
+import { RawTransaction, Simulation } from "common/types";
+
+import { getNetworkDefinitionFromIdentifier } from "common/utils";
+
+import { ETHEREUM_MAINNET_CHAIN_ID } from "common/config";
+
 import SimulationAssetChanges from "./SimulationAssetChanges";
 
 type Stage = "simulating" | "error" | "success" | "reject" | "continue";
 
 export interface SimulateTransactionProps {
   operationId: string;
-  transactionPayload: Transaction;
+  transactionPayload: RawTransaction;
 }
 
 const RenderFrame = ({ top, bottom }: { top: ReactNode; bottom: ReactNode }) => {
@@ -46,11 +49,21 @@ const SimulationRevert = ({ error }: { error?: string | null }) => (
 export default function SimulateTransaction(props: SimulateTransactionProps) {
   const { operationId, transactionPayload } = props;
   const [stage, setStage] = useState<Stage | null>(null);
-  const [result, setResult] = useState<(Result & { from: string; to: string }) | null>(null);
+  const [result, setResult] = useState<Simulation.Result | null>(null);
 
   const [userPreferences] = useLocalUserPreferences();
 
   useDocumentTitle("Simulate Transaction");
+
+  const operations = useDAppOperations();
+
+  const operation = operations?.find(operation => operation.id === operationId);
+
+  const chainId = useMemo(() => {
+    if (operation?.operationType === "transact") {
+      return getNetworkDefinitionFromIdentifier(operation.networkIdentifier).chainId;
+    }
+  }, [operation]);
 
   if (!userPreferences.security.dappSimulationEnabled) {
     return <></>;
@@ -63,10 +76,10 @@ export default function SimulateTransaction(props: SimulateTransactionProps) {
       setResult(null);
 
       try {
-        const response = await fetchSimulate(transactionPayload);
+        const result = await fetchSimulate(transactionPayload as any, chainId ?? ETHEREUM_MAINNET_CHAIN_ID);
 
         setStage("success");
-        setResult({ ...response, from: transactionPayload.from, to: transactionPayload.to });
+        setResult(result);
       } catch (error) {
         setStage("error");
       }
@@ -175,9 +188,9 @@ export default function SimulateTransaction(props: SimulateTransactionProps) {
             Aurox Wallet simulates your transactions, determines the outcome and displays the balance changes below.
           </Typography>
 
-          {result?.simulation && simulationIsRevert(result.simulation) && <SimulationRevert error={result?.simulation?.revert.message} />}
-          {result?.simulation && simulationIsSuccess(result.simulation) && (
-            <SimulationAssetChanges from={result.from} to={result.to} assetChanges={result.simulation.success} metadata={result.metadata} />
+          {result && !result.success && <SimulationRevert error={result.error} />}
+          {operation?.operationType === "transact" && result && result.success && (
+            <SimulationAssetChanges simulation={result} chainId={chainId} operation={operation} />
           )}
         </Stack>
         <DefaultControls primary="Continue" secondary="Reject" onPrimary={handleContinue} onSecondary={handleReject} />

@@ -16,6 +16,11 @@ export type FlatTokenBalanceInfo = AssetDefinition & {
   decimals: number;
   balance: string;
   balanceUSDValue: string | null;
+  metadata?: {
+    tokenId: string;
+    image: string | null;
+    updatedAt: number | null;
+  };
 };
 
 export interface TokenIdentity {

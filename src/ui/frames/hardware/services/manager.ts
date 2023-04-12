@@ -1,12 +1,19 @@
 import { serializeError } from "@ledgerhq/errors";
 
-import { HardwareOperation, HardwareSignerAccountInfo } from "common/types";
+import { HardwareOperation, HardwareSignerAccountInfo, HardwareSignerType } from "common/types";
+import { HdPath } from "common/wallet";
 
 import { LedgerService } from "./ledger";
 import { TrezorService } from "./trezor";
 
+export interface HardwareServices {
+  ledger: LedgerService | null;
+  trezor: TrezorService | null;
+}
+
 export class HardwareOperationManager {
-  static #service: LedgerService | TrezorService | null;
+  static #ledgerService: LedgerService | null;
+  static #trezorService: TrezorService | null;
 
   static #processingOperation = false;
 
@@ -18,25 +25,41 @@ export class HardwareOperationManager {
     this.#processingOperation = true;
 
     try {
-      this.#service = await this.#resolveService(operation);
+      const service = await this.#resolveService(operation.device);
 
-      const result = await this.#resolveOperation(account, operation, this.#service);
+      const result = await this.#resolveOperation(account, operation, service);
 
       return { success: true, result };
     } catch (error) {
-      const details = serializeError(error);
-
-      const errorDetails = { success: false, error: `Unknown ${operation.device} error` };
-
-      if (typeof details === "string") {
-        errorDetails.error = details;
-      } else if (details?.message) {
-        errorDetails.error = details.message;
-      }
-
-      return errorDetails;
+      return this.#extractError(operation.device, error);
     } finally {
       this.#processingOperation = false;
+    }
+  }
+
+  static #extractError(device: HardwareSignerType, error: any) {
+    const details = serializeError(error);
+
+    const errorDetails = { success: false, error: `Unknown ${device} error` };
+
+    if (typeof details === "string") {
+      errorDetails.error = details;
+    } else if (details?.message) {
+      errorDetails.error = details.message;
+    }
+
+    return errorDetails;
+  }
+
+  static async getMultipleAddresses(device: HardwareSignerType, walletIndex: number, path: HdPath) {
+    try {
+      const service = await this.#resolveService(device);
+
+      return await service.getMultipleAddresses(walletIndex, 5, path);
+    } catch (error) {
+      const details = this.#extractError(device, error);
+
+      throw details.error;
     }
   }
 
@@ -44,16 +67,16 @@ export class HardwareOperationManager {
     return { success: false, error: "Operation aborted by user" };
   }
 
-  static async #resolveService(operation: HardwareOperation) {
-    if (this.#service) {
-      return this.#service;
-    }
-
-    switch (operation.device) {
+  static async #resolveService(device: HardwareSignerType) {
+    switch (device) {
       case "trezor":
-        return await TrezorService.initialize();
+        this.#trezorService = this.#trezorService || (await TrezorService.initialize());
+
+        return this.#trezorService;
       case "ledger":
-        return await LedgerService.initialize();
+        this.#ledgerService = this.#ledgerService || (await LedgerService.initialize());
+
+        return this.#ledgerService;
       default:
         throw new Error("Can not identify hardware service type");
     }

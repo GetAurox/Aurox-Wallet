@@ -3,7 +3,12 @@ import { TypedEmitter } from "tiny-typed-emitter";
 import groupBy from "lodash/groupBy";
 
 import { AccountInfo, BlockchainNetwork, ImportedAsset, MultichainBalances, MultichainNetworkBalances } from "common/types";
-import { extractAssetKeyDetails, getAssetIdentifierFromDefinition, tryGetAccountAddressForChainType } from "common/utils";
+import {
+  applyTokenAssetVisibilityRules,
+  extractAssetKeyDetails,
+  getAssetIdentifierFromDefinition,
+  tryGetAccountAddressForChainType,
+} from "common/utils";
 import { loadMultichainBalancesFromLocalArea, saveMultichainBalancesToLocalArea } from "common/storage";
 
 import { applyImportedAssetUpdates, ImportedAssetUpdate } from "../ImportedAssetManager";
@@ -266,13 +271,18 @@ export class MultichainBalanceManager extends TypedEmitter<MultichainBalanceMana
       if (accountAddress) {
         const assetIdentifiers = new Set([getAssetIdentifierFromDefinition({ type: "native" })]);
 
-        for (const { assetIdentifier, networkIdentifier } of this.#importedAssets) {
-          if (networkIdentifier === network.identifier) {
-            assetIdentifiers.add(assetIdentifier);
+        const assets = this.#importedAssets.filter(applyTokenAssetVisibilityRules);
+
+        const networkAssets: ImportedAsset[] = [];
+
+        for (const asset of assets) {
+          if (asset.networkIdentifier === network.identifier) {
+            assetIdentifiers.add(asset.assetIdentifier);
+            networkAssets.push(asset);
           }
         }
 
-        queries.push({ accountAddress, network, assetIdentifiers: [...assetIdentifiers] });
+        queries.push({ accountAddress, network, assetIdentifiers: [...assetIdentifiers], assets: networkAssets });
       }
     }
 
@@ -302,7 +312,7 @@ export class MultichainBalanceManager extends TypedEmitter<MultichainBalanceMana
       if (resolverType === "rpc") {
         // If update type is "rpc" we apply balances of tokens as is, cause RPC has correct balances amounts
 
-        draft[targetAccount.uuid].networks[networkIdentifier].balances = update.balances;
+        Object.assign(draft[targetAccount.uuid].networks[networkIdentifier].balances, update.balances);
       } else {
         // Use "leecher" update type for updating amounts and USD values;
 

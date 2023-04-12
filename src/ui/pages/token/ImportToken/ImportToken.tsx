@@ -153,7 +153,7 @@ export default function ImportToken() {
 
       if (result.status === "error") {
         if (result.code === "Duplicate") {
-          await ImportedAsset.SetVisibility.perform(assetKey, "force-show");
+          await ImportedAsset.SetVisibility.perform(assetKey, "force-show", "token");
         } else {
           throw new Error(result.message);
         }

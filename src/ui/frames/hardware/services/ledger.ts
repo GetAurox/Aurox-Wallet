@@ -1,4 +1,6 @@
 import { ethers } from "ethers";
+import { v4 as uuid4 } from "uuid";
+import range from "lodash/range";
 
 import { SignTypedDataVersion, TypedDataUtils } from "@metamask/eth-sig-util";
 
@@ -8,6 +10,9 @@ import type Eth from "@ledgerhq/hw-app-eth";
 import { HardwareSignerAccountInfo, SignTypedDataPayload, TransactionRequest } from "common/types";
 
 import { TransactionType } from "ui/common/fee";
+
+import { getEVMSignerPath, HdPath } from "common/wallet";
+import { HardwarePathResult } from "common/wallet/helpers/types";
 
 import { HardwareServiceBase } from "./base";
 
@@ -39,6 +44,31 @@ export class LedgerService implements HardwareServiceBase {
 
   async close() {
     await this.#eth.transport.close();
+  }
+
+  async getAddress(accountNumber: number, hdPath: HdPath): Promise<HardwarePathResult> {
+    const path = getEVMSignerPath(accountNumber, hdPath);
+
+    const { address } = await this.#eth.getAddress(path);
+
+    return { address, path, accountNumber };
+  }
+
+  async getMultipleAddresses(startIndex: number, numAddresses: number, hdPath: HdPath) {
+    const addresses: HardwarePathResult[] = [];
+
+    for (const idx of range(numAddresses)) {
+      addresses.push(await this.getAddress(idx + startIndex, hdPath));
+    }
+
+    return addresses.map<HardwareSignerAccountInfo>((details, index) => ({
+      ...details,
+      uuid: uuid4(),
+      alias: `Ledger Account ${index + 1}`,
+      type: "hardware",
+      hardwareType: "ledger",
+      chainType: "evm",
+    }));
   }
 
   async signTransaction(account: HardwareSignerAccountInfo, transaction: TransactionRequest) {

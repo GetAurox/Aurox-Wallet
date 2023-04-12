@@ -105,9 +105,9 @@ export default function InviteFriend() {
   };
 
   const rows = [
-    { id: 1, tier: "Tier 1", referral_number: refereesCount ?? 0 },
-    { id: 2, tier: "Tier 2", referral_number: "Tracking Coming Soon" },
-    { id: 3, tier: "Tier 3", referral_number: "Tracking Coming Soon" },
+    { id: 1, tier: "Tier 1", referral_number: refereesCount?.tier1RefereesCount ?? 0 },
+    { id: 2, tier: "Tier 2", referral_number: refereesCount?.tier2RefereesCount ?? 0 },
+    { id: 3, tier: "Tier 3", referral_number: refereesCount?.tier3RefereesCount ?? 0 },
   ];
 
   return (
@@ -163,7 +163,7 @@ export default function InviteFriend() {
                 </Typography>
 
                 <Typography variant="large" mb={3}>
-                  Note: This panel will soon be updated to include additional statistics such as tier 2/3 and revenue.
+                  Note: This panel will soon be updated to include additional statistics such as revenue.
                 </Typography>
               </Box>
             </>

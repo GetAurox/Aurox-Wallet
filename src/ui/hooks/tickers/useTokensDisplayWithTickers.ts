@@ -103,6 +103,10 @@ export function useTokensDisplayWithTickers(tokens: FlatTokenBalanceInfo[]): Tok
         pairId = BINANCE_SMART_CHAIN_NATIVE_ASSET_PRICING_PAIR_ID;
       }
 
+      if (token.type === "nft" && token?.metadata?.image) {
+        img = { alt: token.name, src: token?.metadata?.image };
+      }
+
       const assetDefinition = getAssetDefinitionFromIdentifier(token.assetIdentifier);
       const networkDefinition = getNetworkDefinitionFromIdentifier(token.networkIdentifier);
 

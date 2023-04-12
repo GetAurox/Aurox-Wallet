@@ -1,7 +1,15 @@
 import { useCallback, useMemo } from "react";
 import isEqual from "lodash/isEqual";
 
-import { MultichainAccountBalanceInfo, MultichainBalances, BlockchainNetwork, ImportedAsset, ImportedAssetToken } from "common/types";
+import {
+  MultichainAccountBalanceInfo,
+  MultichainBalances,
+  BlockchainNetwork,
+  ImportedAsset,
+  ImportedAssetToken,
+  ImportedAssetNFT,
+  NFTAssetDefinition,
+} from "common/types";
 import { PublicBalancesState } from "common/states";
 import { DEFAULT_DECIMALS } from "common/config";
 import {
@@ -13,7 +21,7 @@ import {
   isNativeAsset,
 } from "common/utils";
 
-import { FlatTokenBalanceInfo } from "ui/types";
+import { FlatNFTBalanceInfo, FlatTokenBalanceInfo } from "ui/types";
 
 import { makeConsumerReadyAsserterHook, makeStateConsumerHook } from "../utils";
 
@@ -24,6 +32,8 @@ import { useAccountsVisibleOrdered, useActiveAccountUUID } from "./wallet";
 type ImportedAssetGetter = (networkIdentifier: string, assetIdentifier: string) => ImportedAsset | null;
 
 const EMPTY_FLAT_BALANCES = Object.freeze([]) as unknown as FlatTokenBalanceInfo[];
+
+const EMPTY_NFT_FLAT_BALANCES = Object.freeze([]) as unknown as FlatNFTBalanceInfo[];
 
 export const useBalancesState = makeStateConsumerHook(PublicBalancesState.buildConsumer());
 
@@ -67,14 +77,14 @@ export function useAccountFlatTokenBalances(accountUUID: string | null | undefin
 export function useWalletPortfolioUSDValue(showHidden?: boolean): string | null {
   const visibleAccounts = useAccountsVisibleOrdered(showHidden);
 
-  const visibleAccontUUIDs = useMemo(() => visibleAccounts?.map(account => account.uuid), [visibleAccounts]);
+  const visibleAccountUUIDs = useMemo(() => visibleAccounts?.map(account => account.uuid), [visibleAccounts]);
 
   const selector = useCallback(
     (data: MultichainBalances) =>
       walletPortfolioUSDValueSelector(
-        Object.fromEntries(Object.entries(data).filter(([accountUUID]) => visibleAccontUUIDs?.includes(accountUUID))),
+        Object.fromEntries(Object.entries(data).filter(([accountUUID]) => visibleAccountUUIDs?.includes(accountUUID))),
       ),
-    [visibleAccontUUIDs],
+    [visibleAccountUUIDs],
   );
 
   return useBalancesState(selector);
@@ -144,6 +154,20 @@ export function useActiveAccountFlatTokenBalances(): FlatTokenBalanceInfo[] {
   );
 
   return useBalancesState(selector) ?? EMPTY_FLAT_BALANCES;
+}
+
+export function useActiveAccountFlatNFTBalances(): FlatNFTBalanceInfo[] {
+  const networkGetter = useNetworkGetter();
+  const assetGetter = useImportedAssetGetter();
+
+  const activeAccountUUID = useActiveAccountUUID();
+
+  const selector = useCallback(
+    (data: MultichainBalances) => flatAccountNFTBalancesSelector(data, networkGetter, assetGetter, activeAccountUUID),
+    [networkGetter, assetGetter, activeAccountUUID],
+  );
+
+  return useBalancesState(selector) ?? EMPTY_NFT_FLAT_BALANCES;
 }
 
 export function useFlatTokenBalances(): FlatTokenBalanceInfo[] {
@@ -247,7 +271,7 @@ export function useActiveAccountFlatBalanceOfAsset(assetKey: string | null | und
   return useBalancesState(selector, isEqual);
 }
 
-function useImportedAssetGetter() {
+export function useImportedAssetGetter() {
   const importedAssets = useImportedAssets();
 
   const importedAssetMap = useMemo(() => new Map(importedAssets?.map(asset => [asset.key, asset])), [importedAssets]);
@@ -299,6 +323,33 @@ function flatAccountTokenBalancesSelector(
   return result;
 }
 
+function flatAccountNFTBalancesSelector(
+  data: MultichainBalances,
+  networkGetter: NetworkGetter,
+  assetGetter: ImportedAssetGetter,
+  accountUUID: string | null | undefined,
+) {
+  const networks = multichainAccountNetworksSelector(networkGetter, data, accountUUID);
+
+  if (!networks) return [];
+
+  const result = [];
+
+  for (const { networkIdentifier, balances } of Object.values(networks)) {
+    for (const balanceInfo of Object.values(balances ?? {})) {
+      if (Number(balanceInfo.balance) <= 0) continue;
+
+      const importedAsset = assetGetter(networkIdentifier, balanceInfo.assetIdentifier);
+
+      if (importedAsset?.type === "nft") {
+        result.push(createFlatBalanceItemFromImportedNFTAsset(networkIdentifier, balanceInfo, importedAsset));
+      }
+    }
+  }
+
+  return result;
+}
+
 function walletPortfolioUSDValueSelector(data: MultichainBalances) {
   let sum = 0;
 
@@ -315,7 +366,11 @@ function walletPortfolioUSDValueSelector(data: MultichainBalances) {
   return sum.toFixed(2);
 }
 
-function accountPortfolioUSDValueSelector(data: MultichainBalances, networkGetter: NetworkGetter, accountUUID: string | null | undefined) {
+export function accountPortfolioUSDValueSelector(
+  data: MultichainBalances,
+  networkGetter: NetworkGetter,
+  accountUUID: string | null | undefined,
+) {
   const networks = multichainAccountNetworksSelector(networkGetter, data, accountUUID);
 
   if (!networks) return "0";
@@ -433,7 +488,7 @@ function multichainAccountNetworksSelector(networkGetter: NetworkGetter, data: M
   return networks;
 }
 
-function createFlatBalanceItemFromNativeAsset(
+export function createFlatBalanceItemFromNativeAsset(
   networkIdentifier: string,
   balanceInfo: MultichainAccountBalanceInfo,
   network: BlockchainNetwork,
@@ -461,7 +516,7 @@ function createFlatBalanceItemFromNativeAsset(
   };
 }
 
-function createFlatBalanceItemFromImportedTokenAsset(
+export function createFlatBalanceItemFromImportedTokenAsset(
   networkIdentifier: string,
   balanceInfo: MultichainAccountBalanceInfo,
   importedAssetToken: ImportedAssetToken,
@@ -484,5 +539,35 @@ function createFlatBalanceItemFromImportedTokenAsset(
     networkIdentifier,
     balance,
     balanceUSDValue,
+  };
+}
+
+function createFlatBalanceItemFromImportedNFTAsset(
+  networkIdentifier: string,
+  balanceInfo: MultichainAccountBalanceInfo,
+  importedAssetNFT: ImportedAssetNFT,
+): FlatNFTBalanceInfo {
+  const { assetIdentifier, balance, balanceUSDValue } = balanceInfo;
+
+  const { name, symbol, decimals, verified, visibility, autoImported, metadata } = importedAssetNFT;
+
+  return {
+    key: importedAssetNFT.key,
+    ...(getAssetDefinitionFromIdentifier(assetIdentifier) as NFTAssetDefinition),
+    ...getNetworkDefinitionFromIdentifier(networkIdentifier),
+    name,
+    symbol,
+    decimals,
+    verified,
+    visibility,
+    autoImported,
+    assetIdentifier,
+    networkIdentifier,
+    balance,
+    balanceUSDValue,
+    metadata: {
+      tokenId: String(metadata.tokenId),
+      image: metadata.image,
+    },
   };
 }

@@ -29,7 +29,7 @@ import { useTransactionManager } from "ui/hooks/rpc";
 
 import { RawTransaction } from "common/types";
 
-import { ERC20Transfer } from "ui/common/tokens";
+import { getEVMTokenTransfer } from "ui/common/tokens";
 
 import { submittingTransaction } from "./mock";
 
@@ -179,22 +179,13 @@ export function Send() {
       return;
     }
 
-    const from = getAccountAddressForChainType(activeAccount, selectedTokenNetwork.chainType);
-    const to = selectedToken.assetDefinition.type === "native" ? recipientAddress : selectedToken.assetDefinition.contractAddress;
+    const fromAddress = getAccountAddressForChainType(activeAccount, selectedTokenNetwork.chainType);
 
-    const value = ethers.utils.parseUnits(amountDecimal.toDP(selectedToken.decimals).toFixed(), selectedToken.decimals);
+    const amount = ethers.utils.parseUnits(amountDecimal.toDP(selectedToken.decimals).toFixed(), selectedToken.decimals);
 
-    if (selectedToken.assetDefinition.type === "native") {
-      const transaction = { from, to, data: "0x", value: value.toHexString() };
+    const transaction = getEVMTokenTransfer({ assetDefinition: selectedToken.assetDefinition, fromAddress, recipientAddress, amount });
 
-      setTransaction(transaction);
-    } else {
-      const transfer = new ERC20Transfer(from, to);
-
-      transfer.updateAmountAndRecipient(value, recipientAddress);
-
-      setTransaction(transfer.transaction);
-    }
+    setTransaction(transaction);
 
     return () => {
       transactionManager?.cancelFeeUpdate();

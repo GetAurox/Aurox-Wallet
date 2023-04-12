@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, ReactElement } from "react";
 import { Link } from "react-router-dom";
 
 import { Theme } from "@mui/material/styles";
@@ -34,7 +34,7 @@ export interface CommonListItemProps extends Omit<ListItemButtonProps, "sx"> {
   endIcon?: ReactNode;
   startIcon?: ReactNode;
   primaryLabel?: string;
-  secondaryLabel?: string;
+  secondaryLabel?: string | ReactElement;
   dividerVariant?: "fullWidth" | "inset" | "middle";
   sx?: Partial<Record<keyof typeof sxStyles, SxProps<Theme>>>;
 }

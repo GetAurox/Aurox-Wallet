@@ -2,12 +2,18 @@ import { Fragment, SyntheticEvent, useCallback, useEffect, useMemo, useState } f
 import isEqual from "lodash/isEqual";
 import sortBy from "lodash/sortBy";
 
-import { Box, Button, Tab, Tabs, IconButton, List, Divider } from "@mui/material";
+import { Box, Button, Tab, Tabs, IconButton, List, Divider, Typography } from "@mui/material";
 
 import { ImportedAsset } from "common/operations";
 import { applyTokenAssetVisibilityRules, getNetworkDefinitionFromIdentifier } from "common/utils";
 
-import { useActiveAccountBalances, useFuse, useImportedAssets, useTokensDisplayWithTickers } from "ui/hooks";
+import {
+  useActiveAccountBalances,
+  useActiveAccountFlatNFTBalances,
+  useFuse,
+  useImportedAssets,
+  useTokensDisplayWithTickers,
+} from "ui/hooks";
 import { useHistoryState, useHistoryGoBack, useHistoryPush } from "ui/common/history";
 import { FlatTokenBalanceInfo, TokenDisplay } from "ui/types";
 
@@ -16,8 +22,11 @@ import { IconUnion, IconFilterAlt } from "ui/components/icons";
 import Header from "ui/components/layout/misc/Header";
 import Search from "ui/components/common/Search";
 
-import ManageTokenListItem from "ui/pages/token/ManageTokens/ManageTokenListItem";
+import CheckboxField from "ui/components/form/CheckboxField";
+
 import ManageTokenFilterDialog, { VisibilityFilter } from "ui/pages/token/ManageTokens/ManageTokenFilterDialog";
+
+import ManageNFTListItem from "./ManageNFTListItem";
 
 const sxStyles = {
   root: {
@@ -76,6 +85,15 @@ const sxStyles = {
   divider: {
     height: 0,
   },
+  checkboxWrapper: {
+    mt: 2,
+    padding: "4px 16px",
+  },
+  checkboxLabel: {
+    "& .MuiTypography-root": {
+      marginBottom: 0,
+    },
+  },
 };
 
 type VerifyFilter = "verified" | "unverified";
@@ -91,10 +109,15 @@ export default function ManageNFTs() {
   const [selectedAssetKeys, setSelectedAssetKeys] = useState<string[]>([]);
   const [unselectedAssetKeys, setUnselectedAssetKeys] = useState<string[]>([]);
 
+  const [checkAll, setCheckAll] = useState(false);
+
   const showVerified = verifyFilter === "verified";
 
   const balances = useActiveAccountBalances();
   const importedAssets = useImportedAssets();
+
+  const flatBalances = useActiveAccountFlatNFTBalances();
+  const flatBalancesKeys = flatBalances.map(balance => balance.key);
 
   const targetAssets = useMemo(() => {
     const targetAssets: FlatTokenBalanceInfo[] = [];
@@ -102,10 +125,11 @@ export default function ManageNFTs() {
     for (const asset of importedAssets ?? []) {
       const balanceInfo = balances?.[asset.networkIdentifier]?.balances?.[asset.assetIdentifier];
 
-      if (asset.type === "nft") {
+      if (asset.type === "nft" && flatBalancesKeys.includes(asset.key)) {
         targetAssets.push({
           ...asset,
-          type: "contract",
+          type: "nft",
+          tokenId: asset.metadata.tokenId,
           ...getNetworkDefinitionFromIdentifier(asset.networkIdentifier),
           balance: balanceInfo?.balance ?? "0",
           balanceUSDValue: balanceInfo?.balanceUSDValue ?? null,
@@ -124,7 +148,7 @@ export default function ManageNFTs() {
     }
 
     return verifyFiltered;
-  }, [balances, importedAssets, showVerified, visibilityFilter]);
+  }, [balances, flatBalancesKeys, importedAssets, showVerified, visibilityFilter]);
 
   const tokens = useTokensDisplayWithTickers(targetAssets);
 
@@ -182,11 +206,25 @@ export default function ManageNFTs() {
       const isChanged = applyTokenAssetVisibilityRules(tokenToUpdate) !== isSelected;
 
       if (isChanged) {
-        ImportedAsset.SetVisibility.perform(tokenToUpdate.key, !isSelected ? "hidden" : "force-show");
+        ImportedAsset.SetVisibility.perform(tokenToUpdate.key, !isSelected ? "hidden" : "force-show", "nft");
       }
     }
 
     goBack();
+  };
+
+  const toggleCheckAll = () => {
+    const allTokens = tokens.map(token => token.key);
+
+    setCheckAll(value => !value);
+
+    if (checkAll) {
+      setSelectedAssetKeys([]);
+      setUnselectedAssetKeys(allTokens);
+    } else {
+      setSelectedAssetKeys(allTokens);
+      setUnselectedAssetKeys([]);
+    }
   };
 
   const handleImport = () => push("/import-nft");
@@ -205,10 +243,22 @@ export default function ManageNFTs() {
           <Tab value="unverified" sx={sxStyles.tab} label="Unverified" />
         </Tabs>
       </Box>
+      <Box sx={sxStyles.checkboxWrapper}>
+        <CheckboxField
+          label={
+            <Typography variant="medium" mb={1} mr={2}>
+              Check/Uncheck
+            </Typography>
+          }
+          sx={{ label: sxStyles.checkboxLabel }}
+          value={checkAll}
+          onChange={toggleCheckAll}
+        />
+      </Box>
       <List sx={sxStyles.list}>
         {fuzzyResults.map(({ item: token }, index) => (
           <Fragment key={token.key}>
-            <ManageTokenListItem token={token} onSelect={handleSelect} selected={selectedAssetKeys.includes(token.key)} />
+            <ManageNFTListItem nft={token} onSelect={handleSelect} selected={selectedAssetKeys.includes(token.key)} />
             {index + 1 !== fuzzyResults.length && <Divider component="li" variant="middle" sx={sxStyles.divider} />}
           </Fragment>
         ))}

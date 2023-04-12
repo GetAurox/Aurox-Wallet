@@ -27,7 +27,7 @@ export interface TokenAmountSelectorProps {
   onChange: (value: string) => void;
   error?: boolean;
   errorText?: string;
-  selectedTokenType: "native" | "contract";
+  selectedTokenType: "native" | "contract" | "nft";
 }
 
 export default function TokenAmountSelector(props: TokenAmountSelectorProps) {

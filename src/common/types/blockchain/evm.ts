@@ -1,1 +1,2 @@
-export type EVMSupportedTokenContractType = "ERC20" | "ERC721" | "ERC1155";
+export type EVMSupportedTokenContractType = "ERC20" | EVMSupportedNFTContractType;
+export type EVMSupportedNFTContractType = "ERC721" | "ERC1155";

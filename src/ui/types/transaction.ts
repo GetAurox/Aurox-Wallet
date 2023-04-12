@@ -291,8 +291,6 @@ type AuxillaryTransactionProps =
 
 export type OmitAuxillaryTransactionProps<T> = DistributiveOmit<T, AuxillaryTransactionProps>;
 
-export type BigNumberTyped = { type: "BigNumber"; hex: string };
-
 export type EthereumAccountNFTContractType = "ERC721" | "ERC1155";
 
 export type EthereumAccountNFTAmount = {

@@ -1,17 +1,33 @@
-import { PocketSimulator, Transaction, SimulateOptions, Result } from "pocket-universe-js";
+import { EVMTransactions } from "common/operations";
+import { Simulation, TransactionRequest } from "common/types";
 
-import { POCKETUNIVERSE_API_URL } from "common/config";
+import { getNFTNameAndSymbol } from "common/api/getNFTMetadata";
 
-const pocket = new PocketSimulator(POCKETUNIVERSE_API_URL);
+export async function fetchSimulate(transaction: TransactionRequest, chainId: number): Promise<Simulation.Result> {
+  const result = await EVMTransactions.SimulateEVMTransactions.perform({
+    chainId,
+    transactions: [
+      {
+        value: transaction.value ?? "0x0",
+        from: transaction.from,
+        data: transaction.data,
+        to: transaction.to,
+      } as any,
+    ],
+  });
 
-export async function fetchSimulate(transaction: Transaction, options?: SimulateOptions): Promise<Result> {
-  return pocket.simulate(
-    {
-      value: transaction.value ?? "0x0",
-      from: transaction.from,
-      data: transaction.data,
-      to: transaction.to,
-    },
-    options,
-  );
+  if (result.success) {
+    for (const balanceChange of result.balanceChanges) {
+      for (const change of balanceChange) {
+        if (!!change.tokenId && !change.tokenLogoURL) {
+          const nftDetails = await getNFTNameAndSymbol(change.contractAddress, change.tokenId, chainId);
+
+          change.tokenLogoURL = nftDetails.url;
+          change.contractName = nftDetails.name || "Unknown NFT name";
+        }
+      }
+    }
+  }
+
+  return result;
 }

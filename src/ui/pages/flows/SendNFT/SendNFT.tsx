@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
-import { ethers } from "ethers";
+import { ReactNode, useMemo, useState } from "react";
+import { One as BigNumberOne } from "@ethersproject/constants";
 
-import { Theme, Stack, Box, Divider, Button, Typography } from "@mui/material";
+import { Theme, Stack, Box, Divider, Button, Typography, IconButton } from "@mui/material";
+import RepeatOnIcon from "@mui/icons-material/RepeatOn";
+import WarningIcon from "@mui/icons-material/Warning";
+
+import { getUNSDomainRecordTypeFromTokenDisplay } from "common/utils";
 
 import { addressIsContract, ProviderManager } from "common/wallet";
-import { createNetworkIdentifier } from "common/utils";
-import { ethereumMainnetNetworkIdentifier, ETHEREUM_MAINNET_CHAIN_ID } from "common/config";
 import { NFTItem } from "common/types";
 
 import {
@@ -15,26 +17,36 @@ import {
   useNetworkByIdentifier,
   useNativeTokenMarketTicker,
   useNetworkBlockchainExplorerLinkResolver,
+  useDebounce,
+  useNSResolveDomainFromAddress,
+  useNSResolveAddressFromDomain,
+  useActiveAccountFlatNFTBalances,
 } from "ui/hooks";
+import { useTransactionManager } from "ui/hooks/rpc";
+
 import { useHistoryReset, useHistoryGoBack, useHistoryPathParams } from "ui/common/history";
 
 import ApproximateFee from "ui/components/flows/feeSelection/ApproximateFee";
 import CurrentNetworkInfo from "ui/components/flows/info/CurrentNetworkInfo";
 import FromAndToDetails from "ui/components/flows/info/FromAndToDetailsInfo";
+import NetworkFeeV2 from "ui/components/flows/feeSelection/NetworkFeeV2";
 import StageWrapper from "ui/components/flows/stages/StageWrapper";
 import WarningStage from "ui/components/flows/stages/WarningStage";
-import NFTHeader from "ui/components/entity/nft/NFTHeader";
 // TODO: uncomment later
 // import MemoInput from "ui/components/flows/info/MemoInput";
+import NFTHeader from "ui/components/entity/nft/NFTHeader";
+import AlertStatus from "ui/components/common/AlertStatus";
 import Success from "ui/components/layout/misc/Success";
 import FormField from "ui/components/form/FormField";
 import ErrorText from "ui/components/form/ErrorText";
 
-import { useAccountNFTsBalance } from "ui/hooks/accounts/useAccountNFTsBalance";
-import { useTransactionManager } from "ui/hooks/rpc";
-import NetworkFeeV2 from "ui/components/flows/feeSelection/NetworkFeeV2";
-import { ERC1155Transfer, ERC721Transfer } from "ui/common/tokens";
-import AlertStatus from "ui/components/common/AlertStatus";
+import { isDomainName, isEthereumAddress } from "ui/common/validators";
+
+import { getEVMTokenTransfer } from "ui/common/tokens";
+
+import { EthereumAccountTokenContractType } from "ui/types";
+
+import WalletSelectorSendModal from "../WalletSelectorSendModal";
 
 const sxStyles = {
   divider: {
@@ -55,25 +67,26 @@ const stages = ["setup", "warning", "preview", "completed"] as const;
 type Stage = typeof stages[number];
 
 export function SendNFT() {
-  const { tokenId: nftId, contractAddress = "" } = useHistoryPathParams<"tokenId" | "contractAddress">();
-
-  const goToPreviousPage = useHistoryGoBack();
-  const reset = useHistoryReset();
-
-  const [disableButton, setDisableButton] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
-  const { stage, back, setStage } = useStages<Stage>(stages);
-  const [recipient, setRecipient] = useState("");
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [validationError, setValidationError] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
+  const [error, setError] = useState("");
+  const [recipient, setRecipient] = useState("");
+  const [disableButton, setDisableButton] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const { stage, back, setStage } = useStages<Stage>(stages);
+  const [notification, setNotification] = useState<string | null>(null);
+  const [isWalletSelectorOpen, setIsWalletSelectorOpen] = useState(false);
+
+  const {
+    tokenId: nftId,
+    contractAddress = "",
+    networkIdentifier = "",
+  } = useHistoryPathParams<"tokenId" | "contractAddress" | "networkIdentifier">();
+
+  const reset = useHistoryReset();
+  const goToPreviousPage = useHistoryGoBack();
 
   const activeAccount = useActiveAccount();
   const activeAccountNetworkAddress = useActiveAccountNetworkAddress();
-
-  // TODO: Change this to use network of the NFT!!!
-  const networkIdentifier = ethereumMainnetNetworkIdentifier;
 
   const network = useNetworkByIdentifier(networkIdentifier);
 
@@ -81,52 +94,58 @@ export function SendNFT() {
 
   const { getTransactionExplorerLink } = useNetworkBlockchainExplorerLinkResolver(networkIdentifier);
 
-  const { balances } = useAccountNFTsBalance([activeAccountNetworkAddress]);
+  const balances = useActiveAccountFlatNFTBalances();
 
-  const [nft] =
-    balances[activeAccountNetworkAddress ?? ""]?.balance.nftTokens
-      .filter(nft => nft.tokenId === nftId && nft.tokenAddress === contractAddress)
-      .map(nft => {
-        return {
-          id: nft.metadata?.id ?? "",
-          status: "pending",
-          artistName: nft.metadata?.creatorUsername ?? "",
-          networkIdentifier: createNetworkIdentifier("evm", ETHEREUM_MAINNET_CHAIN_ID),
-          name: nft.metadata?.name ?? nft.token.name,
-          tokenId: nft.tokenId,
-          symbol: nft.token.symbol,
-          icon: nft.metadata?.imageUrl,
-          decimals: nft.token.decimals,
-          tokenAddress: nft.tokenAddress,
-          accountAddress: nft.accountAddress,
-          tokenContractType: nft.tokenContractType,
-        } as NFTItem;
-      }) ?? [];
+  const balance = balances.find(nft => nft.tokenId === nftId && nft.contractAddress === contractAddress);
 
-  const transfer = useMemo(() => {
-    if (!activeAccountNetworkAddress || !contractAddress || !nftId || !nft?.tokenContractType) {
+  const nft = balance
+    ? ({
+        id: balance.tokenId,
+        status: "pending",
+        networkIdentifier: networkIdentifier,
+        name: balance.name,
+        tokenId: balance.tokenId,
+        symbol: balance.symbol,
+        icon: balance.metadata?.image ?? "",
+        decimals: balance.decimals,
+        tokenAddress: balance.contractAddress,
+        accountAddress: activeAccountNetworkAddress,
+        tokenContractType: balance.contractType as EthereumAccountTokenContractType,
+      } as NFTItem)
+    : null;
+
+  const debouncedRecipient = useDebounce(recipient, 300);
+
+  const { loading: resolvingDomain, domain: resolvedDomain } = useNSResolveDomainFromAddress({ address: debouncedRecipient });
+  const { loading: resolvingAddress, address: resolvedAddress } = useNSResolveAddressFromDomain({
+    unsDomainRecordType: getUNSDomainRecordTypeFromTokenDisplay(),
+    domain: debouncedRecipient,
+  });
+
+  const recipientAddress = resolvedAddress || recipient;
+
+  const transaction = useMemo(() => {
+    if (!activeAccountNetworkAddress || !contractAddress || !nftId || !nft?.tokenContractType || !isEthereumAddress(recipientAddress)) {
       return null;
     }
 
-    if (nft.tokenContractType === "ERC721") {
-      return new ERC721Transfer(activeAccountNetworkAddress, contractAddress, nftId);
-    }
+    return getEVMTokenTransfer({
+      assetDefinition: { type: "contract", contractAddress, contractType: nft.tokenContractType },
+      fromAddress: activeAccountNetworkAddress,
+      recipientAddress,
+      amount: BigNumberOne,
+      tokenId: nftId,
+    });
+  }, [activeAccountNetworkAddress, nft?.tokenContractType, contractAddress, nftId, recipientAddress]);
 
-    if (nft.tokenContractType === "ERC1155") {
-      return new ERC1155Transfer(activeAccountNetworkAddress, contractAddress, nftId, ethers.constants.One.toHexString());
-    }
-
-    return null;
-  }, [activeAccountNetworkAddress, nft?.tokenContractType, contractAddress, nftId]);
-
-  const transactionManager = useTransactionManager(activeAccount, networkIdentifier, transfer?.transaction ?? null);
+  const transactionManager = useTransactionManager(activeAccount, networkIdentifier, transaction);
 
   const approximateFee = (transactionManager?.feeManager?.feePriceInNativeCurrency ?? 0) * Number(nativeTicker?.priceUSD ?? 0);
 
   const handleGoToPreview = async () => {
     if (!activeAccount || !network || !nft) throw new Error("Cannot move to preview as fields are missing");
 
-    const isAddressContract = await addressIsContract(ProviderManager.getProvider(network), recipient);
+    const isAddressContract = await addressIsContract(ProviderManager.getProvider(network), recipientAddress);
 
     if (isAddressContract) {
       setStage("warning");
@@ -149,7 +168,7 @@ export function SendNFT() {
 
     try {
       const hash = await transactionManager.sendTransaction(undefined, {
-        message: `Send ${nft.name}`,
+        message: `Send ${nft?.name}`,
         blockExplorerTxBaseURL: getTransactionExplorerLink(""),
       });
 
@@ -172,18 +191,56 @@ export function SendNFT() {
   };
 
   const handleSetRecipient = (recipient: string) => {
-    const isValidAddress = ethers.utils.isAddress(recipient);
-
-    if (isValidAddress) {
-      transfer?.updateRecipient(recipient);
-    }
-
     setRecipient(recipient);
-    setValidationError(isValidAddress ? null : "Incorrect address");
   };
 
+  const handleWalletSelectorOpen = () => {
+    setIsWalletSelectorOpen(true);
+  };
+
+  const handleWalletSelectorClose = () => {
+    setIsWalletSelectorOpen(false);
+  };
+
+  const handleWalletSelectorSelect = (address: string) => {
+    handleSetRecipient(address);
+    handleWalletSelectorClose();
+  };
+
+  let recipientResolvingResult: ReactNode = null;
+  let validationError: string | null = null;
+
+  const isResolvedDomain = !!resolvedDomain && !resolvingDomain;
+  const isDifferentRecipient = !!recipientAddress && recipientAddress !== recipient;
+  const isDomainNameRecipient = isDomainName(recipient) && !resolvingAddress;
+
+  const shouldRenderResolvedDomain = isEthereumAddress(recipient) && isResolvedDomain;
+  const shouldRenderRecipientAddress = isDomainNameRecipient && isDifferentRecipient;
+
+  if (recipient && (shouldRenderRecipientAddress || shouldRenderResolvedDomain)) {
+    recipientResolvingResult = (
+      <Typography variant="medium" mt="9px" color="text.secondary">
+        {shouldRenderResolvedDomain ? resolvedDomain : recipientAddress}
+      </Typography>
+    );
+    validationError = null;
+  }
+
+  if (recipient && isDomainNameRecipient && !isDifferentRecipient) {
+    recipientResolvingResult = (
+      <Stack mt="9px" direction="row" alignItems="center" columnGap={0.5}>
+        <WarningIcon fontSize="small" color="warning" />
+        <Typography variant="medium" color="warning.main">
+          Invalid recipient
+        </Typography>
+      </Stack>
+    );
+
+    validationError = "Invalid recipient";
+  }
+
   if (stage === "setup") {
-    const disableButton = recipient === "" || error !== "" || validationError !== null;
+    const disableButton = recipient === "" || error !== "" || validationError !== null || !isEthereumAddress(recipientAddress);
 
     return (
       <StageWrapper
@@ -218,7 +275,13 @@ export function SendNFT() {
               onChange={event => handleSetRecipient(event.target.value)}
               error={validationError !== null}
               helper={validationError}
+              endAdornment={
+                <IconButton onClick={handleWalletSelectorOpen}>
+                  <RepeatOnIcon color="primary" />
+                </IconButton>
+              }
             />
+            {recipientResolvingResult}
           </Box>
 
           {/* TODO: uncomment later */}
@@ -229,6 +292,7 @@ export function SendNFT() {
           <ApproximateFee fee={approximateFee || undefined} />
 
           <ErrorText error={error} mt={1} justifyContent="center" />
+          <WalletSelectorSendModal open={isWalletSelectorOpen} onSelect={handleWalletSelectorSelect} onClose={handleWalletSelectorClose} />
         </>
       </StageWrapper>
     );
@@ -238,7 +302,7 @@ export function SendNFT() {
     return (
       <StageWrapper title="Transfer NFT" back={back} onClick={handleGoToPreview} close={goToPreviousPage} hideButton>
         <>
-          <WarningStage recipient={recipient} networkIdentifier={network?.identifier} />
+          <WarningStage recipient={recipientAddress} networkIdentifier={network?.identifier} />
           <Box flexGrow={1} />
 
           <Button sx={{ mt: "10px" }} variant="contained" onClick={() => setStage("preview")}>
@@ -276,22 +340,23 @@ export function SendNFT() {
           )}
           <Divider color="#2A2E39" variant="fullWidth" style={sxStyles.divider} />
 
-          <FromAndToDetails from={activeAccountNetworkAddress ?? ""} to={recipient} />
-          <Stack mt="14px">
+          <FromAndToDetails from={activeAccountNetworkAddress ?? ""} to={recipientAddress} />
+          {/* TODO: uncomment later */}
+          {/* <Stack mt="14px">
             <Typography variant="medium" color="text.secondary">
               Memo
             </Typography>
             <Typography variant="large" mt={0.75} sx={{ wordBreak: "break-all" }}>
               {memo}
             </Typography>
-          </Stack>
+          </Stack> */}
           <Divider sx={{ mt: 2.25, borderColor: (theme: Theme) => theme.palette.custom.grey["19"] }} />
 
           <Stack mt="17px" direction="row" alignItems="center" justifyContent="space-between">
             <Typography variant="medium" color="text.secondary">
               Send:
             </Typography>
-            <Typography variant="medium">{nft.name}</Typography>
+            <Typography variant="medium">{nft?.name}</Typography>
           </Stack>
           {network?.identifier && (
             <NetworkFeeV2 networkIdentifier={network.identifier} feeManager={transactionManager?.feeManager ?? null} />

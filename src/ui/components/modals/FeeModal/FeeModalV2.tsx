@@ -55,7 +55,6 @@ export default function FeeModalV2(props: FeeModalPropsV2) {
 
   const initialStateResetRef = useRef(false);
 
-  const [preference, setPreference] = useState<EVMFeePreference>("medium");
   const [gasPrice, setGasPrice] = useState("");
   const [gasLimit, setGasLimit] = useState("");
   const [baseFee, setBaseFee] = useState("");
@@ -65,33 +64,26 @@ export default function FeeModalV2(props: FeeModalPropsV2) {
   const resetState = useCallback(() => {
     if (!feeManager.feeSettingsNormalized) return;
 
-    setPreference(feeManager.feePreference);
-
     const settings = feeManager.feeSettingsNormalized;
 
     if (settings.type === TransactionType.EIP1559) {
-      const { gasLimit, baseFee, maxPriorityFeePerGas } = settings;
-
-      setGasLimit(gasLimit);
-      setBaseFee(baseFee as string);
-      setMaxPriorityFeePerGas(maxPriorityFeePerGas as string);
+      setBaseFee(settings.baseFee);
+      setMaxPriorityFeePerGas(settings.maxPriorityFeePerGas);
     } else if (settings.type === TransactionType.Legacy) {
-      const { gasPrice, gasLimit } = settings;
-
-      setGasLimit(gasLimit);
-      setGasPrice(gasPrice as string);
+      setGasPrice(settings.gasPrice);
     }
 
+    setGasLimit(settings.gasLimit);
+
     setTransactionType(settings.type);
-  }, [feeManager]);
+  }, [feeManager.feeSettingsNormalized]);
 
   useEffect(() => {
     if (!initialStateResetRef.current || feeManager.feePreference !== "custom") {
       initialStateResetRef.current = true;
-
       resetState();
     }
-  }, [feeManager.feePriceInNativeCurrency, feeManager.feePreference, resetState]);
+  }, [resetState, feeManager.feePreference]);
 
   const handleChangeFeePreference = (event: MouseEvent<HTMLElement>, newFeePreference: EVMFeePreference) => {
     if (!newFeePreference) return;
@@ -146,11 +138,11 @@ export default function FeeModalV2(props: FeeModalPropsV2) {
           </Typography>{" "}
           <Stack mt={2.5} direction="row" alignItems="center" justifyContent="center">
             <FeeToggleButtonGroup
-              size="small"
-              value={preference}
               exclusive
-              onChange={handleChangeFeePreference}
+              size="small"
               aria-label="fee preference"
+              value={feeManager.feePreference}
+              onChange={handleChangeFeePreference}
             >
               {feePreferences.map(value => (
                 <FeeToggleButton key={value} value={value} disableRipple aria-label={`${value} fee`}>
@@ -194,51 +186,51 @@ export default function FeeModalV2(props: FeeModalPropsV2) {
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <Stack mt={1.5} spacing="21px">
               <NumericField
+                decimals={0}
                 type="number"
                 name="gasLimit"
+                value={gasLimit}
                 label="Gas limit"
                 autoComplete="off"
                 sx={sxStyles.formField}
                 placeholder="Enter gas limit"
-                value={gasLimit}
-                decimals={0}
                 onNumericInputChange={handleGasLimitChange}
               />
               {transactionType === TransactionType.Legacy && (
                 <NumericField
+                  decimals={9}
                   type="number"
                   name="gasPrice"
-                  autoComplete="off"
-                  label="Gas price (GWEI)"
-                  sx={sxStyles.formField}
-                  placeholder="Enter gas price"
                   value={gasPrice}
-                  decimals={9}
+                  autoComplete="off"
+                  sx={sxStyles.formField}
+                  label="Gas price (GWEI)"
+                  placeholder="Enter gas price"
                   onNumericInputChange={handleGasPriceChange}
                 />
               )}
               {transactionType === TransactionType.EIP1559 && (
                 <>
                   <NumericField
+                    decimals={9}
                     type="number"
                     name="baseFee"
+                    value={baseFee}
                     autoComplete="off"
                     label="Base fee (GWEI)"
                     sx={sxStyles.formField}
                     placeholder="Enter base fee"
-                    value={baseFee}
-                    decimals={9}
                     onNumericInputChange={handleBaseFeeChange}
                   />
                   <NumericField
+                    decimals={9}
                     type="number"
                     name="priorityFee"
                     autoComplete="off"
-                    label="Priority fee (GWEI)"
                     sx={sxStyles.formField}
-                    placeholder="Enter priority limit"
+                    label="Priority fee (GWEI)"
                     value={maxPriorityFeePerGas}
-                    decimals={9}
+                    placeholder="Enter priority limit"
                     onNumericInputChange={handlePriorityFeeChange}
                   />
                 </>
@@ -246,10 +238,10 @@ export default function FeeModalV2(props: FeeModalPropsV2) {
             </Stack>
             <Typography component="p" variant="medium" mt={2.5} align="center">
               <Link
-                href="https://docs.getaurox.com/product-docs/aurox-wallet-guides/gas-settings"
                 target="_blank"
                 rel="noreferrer"
                 underline="hover"
+                href="https://docs.getaurox.com/product-docs/aurox-wallet-guides/gas-settings"
               >
                 Need help?
               </Link>

@@ -1,61 +1,30 @@
 import { BigNumber, ethers } from "ethers";
-import { cloneDeep } from "lodash";
 
-import { RawTransaction, ReadableTransaction } from "common/types";
-import { formatTransaction } from "common/utils";
+import { ERC20__factory } from "common/wallet/typechain";
 
-export class ERC20Approval {
-  static readonly ABI = JSON.stringify(["function approve(address spender, uint256 amount)"]);
+export interface ERC20ApprovalParams {
+  fromAddress: string;
+  tokenAddress: string;
+  spenderAddress: string;
+  allowance: BigNumber;
+}
 
-  #transaction: RawTransaction;
+export const isInfinite = (amount: BigNumber) => amount.eq(ethers.constants.MaxUint256);
 
-  #transactionDetails: ReadableTransaction | null = null;
+export function getERC20Approval(params: ERC20ApprovalParams) {
+  const { fromAddress, tokenAddress, spenderAddress, allowance } = params;
 
-  #contractInterface = new ethers.utils.Interface(ERC20Approval.ABI);
+  const contractInterface = new ethers.utils.Interface(ERC20__factory.abi);
 
-  constructor(transaction: RawTransaction) {
-    this.#transaction = cloneDeep(transaction);
-  }
+  const data = contractInterface.encodeFunctionData("approve", [spenderAddress, allowance]);
 
-  get transaction() {
-    return this.#transaction;
-  }
+  return { from: fromAddress, to: tokenAddress, value: ethers.constants.HashZero, data };
+}
 
-  get transactionDetails() {
-    this.#transactionDetails = formatTransaction(this.#contractInterface, this.transaction.data);
+export function decodeERC20Approval(data: string) {
+  const contractInterface = new ethers.utils.Interface(ERC20__factory.abi);
 
-    return this.#transactionDetails;
-  }
+  const [spenderAddress, allowance] = contractInterface.decodeFunctionData("approve", data);
 
-  get tokenAddress(): string {
-    return ethers.utils.getAddress(this.transaction.to);
-  }
-
-  get senderAddress(): string {
-    return ethers.utils.getAddress(this.transaction.from);
-  }
-
-  get spender(): string {
-    const [spender] = this.transactionDetails.arguments;
-
-    return spender.value;
-  }
-
-  get amount(): BigNumber {
-    const [, amount] = this.transactionDetails.arguments;
-
-    return amount.value;
-  }
-
-  get isInfinite(): boolean {
-    return this.amount.eq(ethers.constants.MaxUint256);
-  }
-
-  updateAmount(newAmount: BigNumber): void {
-    const newData = this.#contractInterface.encodeFunctionData("approve", [this.spender, newAmount]);
-
-    if (newData === this.#transaction.data) return;
-
-    this.#transaction = { ...this.#transaction, data: newData };
-  }
+  return { spenderAddress, allowance };
 }

@@ -4,6 +4,8 @@ import { BigNumber } from "ethers";
 import { RawTransaction } from "common/types";
 import { EVMSignerPopup } from "ui/common/connections";
 
+import { GasPresetSettings } from "ui/types";
+
 import { EVMFeeManager } from "./base";
 
 import { EIP1559FeeManager } from "./EIP1559";
@@ -33,12 +35,12 @@ export class EVMFeeService {
    * @description Automatically starts the fee update task
    * @returns Instance of this class
    */
-  protected async initialize(transaction: RawTransaction, signer: EVMSignerPopup) {
+  protected async initialize(transaction: RawTransaction, signer: EVMSignerPopup, gasPresets?: GasPresetSettings) {
     if (this.#feeManager) {
       throw new Error("Fee service is already initialized");
     }
 
-    const manager = await this.#resolveFeeManager(transaction, signer);
+    const manager = await this.#resolveFeeManager(transaction, signer, gasPresets);
 
     if (!manager) {
       throw new Error("Failed to initialize fee manager");
@@ -51,7 +53,7 @@ export class EVMFeeService {
     return this;
   }
 
-  async #resolveFeeManager(transaction: TransactionRequest, signer: EVMSignerPopup) {
+  async #resolveFeeManager(transaction: TransactionRequest, signer: EVMSignerPopup, gasPresets?: GasPresetSettings) {
     try {
       const block = await signer.provider.getBlock("latest");
 
@@ -60,10 +62,10 @@ export class EVMFeeService {
       this.#isConnected = true;
 
       if (isEIP1559) {
-        return new EIP1559FeeManager(transaction, signer);
+        return new EIP1559FeeManager(transaction, signer, gasPresets);
       }
 
-      return new LegacyFeeManager(transaction, signer);
+      return new LegacyFeeManager(transaction, signer, gasPresets);
     } catch (error) {
       console.error("Can not get fee data for this transaction", error);
 

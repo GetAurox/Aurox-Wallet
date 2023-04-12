@@ -20,7 +20,11 @@ interface SecurityConfig {
 
 const securityConfig: SecurityConfig[] = [
   { label: "Domain Checker", preferencesKey: "domainCheckerEnabled" },
-  { label: "Simulation", preferencesKey: "dappSimulationEnabled", description: "Currently only available on the ETH network" },
+  {
+    label: "Simulation",
+    preferencesKey: "dappSimulationEnabled",
+    description: "Currently only available on the ETH, MATIC, ARB, OP networks",
+  },
   { label: "Anti-phishing", preferencesKey: "antiPhishingEnabled" },
   {
     label: "Smart Contract Monitoring",

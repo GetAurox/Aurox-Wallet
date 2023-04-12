@@ -16,7 +16,7 @@ import {
   INFURA_ETH_MAINNET_API_KEY,
   ALCHEMY_ETH_MAINNET_API_KEY,
   ALCHEMY_POLYGON_MAINNET_API_KEY,
-  ALCHEMY_ARBIRUM_MAINNET_API_KEY,
+  ALCHEMY_ARBITRUM_MAINNET_API_KEY,
   ALCHEMY_OPTIMISM_MAINNET_API_KEY,
   QUIKNODE_BSC_API_KEY,
   QUIKNODE_AVALANCHE_MAINNET_API_KEY,
@@ -190,7 +190,7 @@ export function buildDefaultMainNetworks(): BlockchainNetwork[] {
       },
       connections: [
         {
-          url: `https://arb-mainnet.g.alchemy.com/v2/${ALCHEMY_ARBIRUM_MAINNET_API_KEY}`,
+          url: `https://arb-mainnet.g.alchemy.com/v2/${ALCHEMY_ARBITRUM_MAINNET_API_KEY}`,
         },
         {
           url: "https://rpc.ankr.com/arbitrum",

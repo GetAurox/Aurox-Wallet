@@ -87,7 +87,11 @@ export async function setupImportedAssetService(walletManager: WalletManager, ne
   });
 
   ImportedAsset.SetVisibility.registerResponder(async data => {
-    await manager.setVisibility(data.targetAssetKey, data.newVisibilityValue);
+    await manager.setVisibility(data.targetAssetKey, data.newVisibilityValue, data.tokenType);
+  });
+
+  ImportedAsset.UpdateImportedNFTAsset.registerResponder(async data => {
+    await manager.updateCustomNFTAssets([data.updatedNFTAsset]);
   });
 
   return { manager, provider };

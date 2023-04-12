@@ -1,6 +1,6 @@
 import { memo, ReactNode, SyntheticEvent, useState } from "react";
 
-import { Box, Collapse, Tab, Tabs, Theme, Typography } from "@mui/material";
+import { Box, Collapse, Stack, Tab, Tabs, Theme, Typography } from "@mui/material";
 
 import { DApp as DAppEvents } from "common/events";
 import { Operation } from "common/types";
@@ -135,16 +135,14 @@ export default memo(function TransactionPageWrapper(props: TransactionPageWrappe
 
   return (
     <>
-      <Box p={2}>
+      <Stack p={2}>
         {errorComponent}
-        <Box component="section" mb="27px">
-          <Typography variant="medium" mt={2} mb="7px">
-            Account Used
-          </Typography>
+        <Stack mt={2} mb="27px" gap={1}>
+          <Typography variant="medium">Account Used</Typography>
           {address && account && (
             <AccountManageItem account={account} addressDisplay={address} key={address} hideActionButtons hideNextIcon skipIsActive />
           )}
-        </Box>
+        </Stack>
         {children}
         {requirePassword && (
           <TransactionConfirmation
@@ -156,7 +154,7 @@ export default memo(function TransactionPageWrapper(props: TransactionPageWrappe
           />
         )}
         {moreOptions}
-      </Box>
+      </Stack>
       <DefaultControls
         primary={submitText ?? "Submit Transaction"}
         secondary="Reject"

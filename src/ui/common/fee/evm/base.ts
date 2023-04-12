@@ -37,6 +37,9 @@ export interface EVMFeeManagerInterface<T> {
   /** Fee settings with all numbers converted to human readable format */
   feeSettingsNormalized: SupportedFeeConfigurationViews | null;
 
+  /** Fee price total in wei */
+  feePrice: BigNumber | null;
+
   /** Total price in native EVM blockchain currency */
   feePriceInNativeCurrency: number | null;
 

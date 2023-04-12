@@ -9,7 +9,7 @@ import {
   TransactionRequest,
   SendTransactionMetadata,
 } from "common/types";
-import { EVMProvider, ProviderManager } from "common/wallet";
+import { EVMProvider, JsonRPCProviderWithRetry, ProviderManager } from "common/wallet";
 import { HARDWARE_URL } from "common/entities";
 
 import { SecureHardwareState } from "common/states";
@@ -69,7 +69,9 @@ export class EVMTransactionsOperationManager extends TypedEmitter<EVMTransaction
 
     const nonce = await this.#getNonce(accountUUID, networkIdentifier);
 
-    if (!transaction.nonce || transaction.nonce >= nonce) {
+    const saveNonceOnComplete = !transaction.nonce || transaction.nonce >= nonce;
+
+    if (saveNonceOnComplete) {
       transaction.nonce = nonce;
     }
 
@@ -86,17 +88,20 @@ export class EVMTransactionsOperationManager extends TypedEmitter<EVMTransaction
 
       const response = await provider.sendTransaction(signedTransaction);
 
-      if (response) {
-        response.wait(1).then(() => {
-          this.emit("evm-transaction-confirmed", {
-            title: metadata?.title ?? "Confirmed",
-            message: `${metadata?.message ?? "Transaction"} confirmed`,
-            blockExplorerURL: metadata?.blockExplorerTxBaseURL ? `${metadata?.blockExplorerTxBaseURL}${response.hash}` : null,
-          });
-        });
+      if (!response) {
+        // This is a safeguard, response should not be null, ever, but if it is, we should raise an error
+        throw new Error(`Unknown error occured, failed to get transaction response`);
       }
 
-      await this.#storageManager.saveEVMTransactions(accountUUID, networkIdentifier, [
+      response.wait(1).then(() => {
+        this.emit("evm-transaction-confirmed", {
+          title: metadata?.title ?? "Confirmed",
+          message: `${metadata?.message ?? "Transaction"} confirmed`,
+          blockExplorerURL: metadata?.blockExplorerTxBaseURL ? `${metadata.blockExplorerTxBaseURL}${response.hash}` : null,
+        });
+      });
+
+      this.#storageManager.saveEVMTransactions(accountUUID, networkIdentifier, [
         {
           networkIdentifier,
           accountUUID,
@@ -107,10 +112,8 @@ export class EVMTransactionsOperationManager extends TypedEmitter<EVMTransaction
         },
       ]);
 
-      const newNonce = await this.#getNonce(accountUUID, networkIdentifier);
-
-      if (transaction.nonce >= newNonce) {
-        this.#saveNonce(accountUUID, networkIdentifier, transaction.nonce);
+      if (saveNonceOnComplete) {
+        this.#saveNonce(accountUUID, networkIdentifier, transaction.nonce + 1);
       }
 
       return response;
@@ -239,7 +242,7 @@ export class EVMTransactionsOperationManager extends TypedEmitter<EVMTransaction
   }
 
   async #saveNonce(accountUUID: string, networkIdentifier: string, nonce: number) {
-    await saveNonceToSyncArea(accountUUID, networkIdentifier, nonce + 1);
+    await saveNonceToSyncArea(accountUUID, networkIdentifier, nonce);
   }
 
   async #getNonce(accountUUID: string, networkIdentifier: string): Promise<number> {
@@ -255,9 +258,15 @@ export class EVMTransactionsOperationManager extends TypedEmitter<EVMTransaction
       throw new Error(`Can not find account with id: ${accountUUID}`);
     }
 
-    const { provider } = ProviderManager.getProvider(network) as EVMProvider;
+    let rpcNonce = 0;
 
-    const rpcNonce = await provider.getTransactionCount(accountAddress);
+    try {
+      const provider = new JsonRPCProviderWithRetry(network);
+
+      rpcNonce = await provider.getTransactionCount(accountAddress);
+    } catch (error) {
+      console.error(error);
+    }
 
     const cachedNonce = await loadNonceFromSyncArea(accountUUID, networkIdentifier);
 

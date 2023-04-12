@@ -42,29 +42,31 @@ const sxStyles = {
 
 export interface NFTTokenCardProps {
   nft: EthereumAccountNFT | null;
+  networkIdentifier: string;
 }
 
 export default function NFTTokenCard(props: NFTTokenCardProps) {
-  const { nft } = props;
+  const { nft, networkIdentifier } = props;
 
   const goBack = useHistoryGoBack();
 
   const hasScrollOverflowObserver = useHasScrollOverflowObserver();
-  // TODO: uncomment once nft has networkIdentifier
-  // const { getContractAddressExplorerLink } = useNetworkBlockchainExplorerLinkResolver(nft.networkIdentifier);
+
+  const { getContractAddressExplorerLink } = useNetworkBlockchainExplorerLinkResolver(networkIdentifier);
 
   const tokenId = nft?.tokenId;
   const image = nft?.metadata?.imageUrl;
   const name = nft?.metadata?.name ?? nft?.token?.name;
+  const collectionName = nft?.metadata?.collectionName;
 
   let title = "Error: Unable to get NFT information";
-  // const link = getContractAddressExplorerLink(nft.contractAddress);
+  const link = getContractAddressExplorerLink(nft?.tokenAddress || "");
 
   if (tokenId && name) {
     title = `${name} #${hasScrollOverflowObserver.overflow.isHorizontal ? collapseIdentifier(tokenId) : tokenId}`;
   }
 
-  const preferredNetwork = "ERC721";
+  const preferredNetwork = nft?.tokenContractType || "ERC721";
   const tokenAddress = nft?.tokenAddress;
 
   useEffect(() => {
@@ -89,7 +91,11 @@ export default function NFTTokenCard(props: NFTTokenCardProps) {
         ) : (
           <Avatar
             variant="square"
-            sx={{ height: DEFAULT_POPUP_WIDTH_WITHOUT_OFFSETS, width: DEFAULT_POPUP_WIDTH_WITHOUT_OFFSETS, borderRadius: "10px" }}
+            sx={{
+              height: DEFAULT_POPUP_WIDTH_WITHOUT_OFFSETS,
+              width: DEFAULT_POPUP_WIDTH_WITHOUT_OFFSETS,
+              borderRadius: "10px",
+            }}
           >
             <IconPlaceholderNFT width={DEFAULT_POPUP_WIDTH_WITHOUT_OFFSETS} height={DEFAULT_POPUP_WIDTH_WITHOUT_OFFSETS} />
           </Avatar>
@@ -98,9 +104,9 @@ export default function NFTTokenCard(props: NFTTokenCardProps) {
           <Typography variant="headingSmall" ref={hasScrollOverflowObserver.ref} lineHeight="28px">
             {title}
           </Typography>
-          {name && (
+          {collectionName && (
             <Typography variant="medium" color="primary.main" mb={0.25}>
-              {name}
+              {collectionName}
             </Typography>
           )}
           {tokenAddress && (
@@ -108,8 +114,7 @@ export default function NFTTokenCard(props: NFTTokenCardProps) {
               <Typography variant="medium" color="text.secondary">
                 {preferredNetwork}
               </Typography>
-              {/* TODO: do proper implementation once BE provides chain ID */}
-              <CopyableLink link={`https://etherscan.io/nft/${tokenAddress}/${tokenId}`} text={tokenAddress} />
+              <CopyableLink link={link} text={tokenAddress} />
             </Box>
           )}
         </CardContent>

@@ -4,12 +4,11 @@ import reactStringReplace from "react-string-replace";
 import { Divider, List, ListItem, ListItemIcon, ListItemText, Typography } from "@mui/material";
 
 import { defaultTheme } from "ui/common/theme";
-
 import { POINTS_DATA } from "ui/common/rewardSystem";
 
-import Section from "./ProfileSection";
+import { boldTextRegexp } from "./helpers";
 
-const boldTextRegexp = /\[\/?(?:b){1,}.*?]/gim;
+import Section from "./ProfileSection";
 
 const sxStyles = {
   list: {

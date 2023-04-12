@@ -34,16 +34,16 @@ export default function NFTListItem(props: NFTListItemProps) {
 
   const push = useHistoryPush();
 
-  const { name, icon, tokenAddress, tokenId } = item;
+  const { name, icon, tokenAddress, tokenId, networkIdentifier } = item;
 
   const handleItemClick = () => {
-    push(`/nft/${tokenAddress}/${tokenId}`);
+    push(`/nft/${networkIdentifier}/${tokenAddress}/${tokenId}`);
   };
 
   return (
     <ListItem disablePadding>
       <ListItemButton sx={sxStyles.listItemButton} onClick={handleItemClick}>
-        <NFTAvatar src={icon} alt={name}>
+        <NFTAvatar src={icon} alt={name} networkIdentifier={networkIdentifier}>
           <IconPlaceholderNFT />
         </NFTAvatar>
         <ListItemText

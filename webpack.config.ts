@@ -23,6 +23,7 @@ const SERVICE_WORKER_FOLDER = join(SRC_FOLDER, "serviceWorker");
 const CONTENT_SCRIPT_FOLDER = join(SRC_FOLDER, "contentScript");
 const INJECT_SCRIPT_FOLDER = join(SRC_FOLDER, "injectScript");
 const PHISHING_FOLDER = join(SRC_FOLDER, "phishing");
+const TWITTER_SCRIPT_FOLDER = join(SRC_FOLDER, "twitterScript");
 
 const FRAMES_FOLDER = join(SRC_FOLDER, "ui", "frames");
 
@@ -73,6 +74,7 @@ export default (options?: WebpackEnvOptions) => {
     service_worker: join(SERVICE_WORKER_FOLDER, "index.ts"),
     content_script: join(CONTENT_SCRIPT_FOLDER, "index.ts"),
     inject_script: join(INJECT_SCRIPT_FOLDER, "index.ts"),
+    twitter_script: join(TWITTER_SCRIPT_FOLDER, "index.ts"),
     phishing: join(PHISHING_FOLDER, "index.ts"),
   };
 

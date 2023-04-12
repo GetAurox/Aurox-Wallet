@@ -1,6 +1,6 @@
 const topic = "user_preferences";
 
-import type { SortSetting, ChartPeriod, ConnectionPlugPopover } from "ui/types";
+import type { SortSetting, ChartPeriod, ConnectionPlugPopover, GasPresetSettings } from "ui/types";
 
 export interface UserPreferences {
   balanceVisible: boolean;
@@ -18,6 +18,8 @@ export interface UserPreferences {
   };
   general?: {
     chainSorting?: boolean;
+    twitterScript?: boolean;
+    gasPresets?: Record<string, GasPresetSettings>;
   };
   testnet?: {
     enabled: boolean;
@@ -45,6 +47,8 @@ export const defaultUserPreferences: UserPreferences = {
   },
   general: {
     chainSorting: true,
+    twitterScript: false,
+    gasPresets: {},
   },
   testnet: {
     enabled: false,

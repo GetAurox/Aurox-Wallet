@@ -1,18 +1,24 @@
-import { BigNumber } from "ethers";
 import { useEffect, useState } from "react";
 
+import { TransactionResponse } from "@ethersproject/abstract-provider";
+import { formatUnits } from "@ethersproject/units";
+import { BigNumber } from "@ethersproject/bignumber";
+
+import { Button } from "@mui/material";
+
 import { EVMTransactionStatus, RawTransaction } from "common/types";
+import { EVMTransactions } from "common/operations";
+import { restoreBigNumberFields } from "common/utils";
+
+import { useAccountByUUID, useNetworkGetter } from "ui/hooks";
+import { useTransactionManager } from "ui/hooks/rpc";
+import { useEVMTransactionsOfAccount } from "ui/hooks/states/evmTransactions";
+import { useHistoryPush } from "ui/common/history";
+import { TransactionType } from "ui/common/fee";
 
 import DialogBase from "ui/components/common/DialogBase";
 import NetworkFee from "ui/components/flows/feeSelection/NetworkFeeV2";
-import { useAccountByUUID } from "ui/hooks";
-
-import { useTransactionManager } from "ui/hooks/rpc";
-
-import { Button } from "@mui/material";
-import { EVMTransactions } from "common/operations";
-import { useEVMTransactionsOfAccount } from "ui/hooks/states/evmTransactions";
-import { useHistoryPush } from "ui/common/history";
+import { ProviderManager } from "common/wallet";
 
 export interface TransactionActionsModalProps {
   accountUUID: string;
@@ -30,39 +36,83 @@ export default function TransactionActionsModal(props: TransactionActionsModalPr
 
   const account = useAccountByUUID(accountUUID);
 
+  const networkGetter = useNetworkGetter();
+
   const [transaction, setTransaction] = useState<RawTransaction | null>(null);
-  const [nonce, setNonce] = useState<number | undefined>(undefined);
+  const [originalTransaction, setOriginalTransaction] = useState<TransactionResponse | null>(null);
 
   const transactions = useEVMTransactionsOfAccount(accountUUID);
 
   const transactionManager = useTransactionManager(account, networkIdentifier, transaction);
 
   useEffect(() => {
-    const getTransaction = async () => {
-      if (!networkIdentifier || !action || !transactions) return;
+    if (!networkIdentifier || !action || !transactions) return;
 
-      const key = `${accountUUID}||${networkIdentifier}||${transactionHash}`;
+    const key = `${accountUUID}||${networkIdentifier}||${transactionHash}`;
 
-      const { from, to, value, data, nonce } = transactions[key].transaction;
+    const originalTransaction = restoreBigNumberFields<TransactionResponse>(transactions[key].transaction);
 
-      setNonce(nonce);
+    const { from, to, value, data } = originalTransaction;
 
-      if (to && action === "speedUp") {
-        setTransaction({ from, data, to, value: BigNumber.from(value).toHexString() });
-      } else if (action === "cancel") {
-        // Cancel is sending 0 ETH to yourself
-        const emptyTransaction = { from, to: from, data: "0x", value: "0x0" };
+    let transaction;
 
-        setTransaction(emptyTransaction);
-      }
-    };
+    if (to && action === "speedUp") {
+      transaction = { from, data, to, value: value.toHexString() };
+    } else {
+      // Cancel is sending 0 ETH to yourself
+      transaction = { from, to: from, data: "0x", value: "0x0" };
+    }
 
-    getTransaction();
+    setOriginalTransaction(originalTransaction);
+    setTransaction(transaction);
   }, [networkIdentifier, accountUUID, action, transactionHash, transactions]);
 
+  // Increase the gas preferences
+  useEffect(() => {
+    if (!originalTransaction || !originalTransaction.gasLimit || !transactionManager?.feeManager?.currentFeeSettings) {
+      return;
+    }
+
+    const maxBigNumber = (valueA: BigNumber | undefined, valueB: BigNumber) => {
+      return valueA?.gt(valueB) ? valueA : valueB;
+    };
+
+    if (transactionManager.feeManager.currentFeeSettings.type === TransactionType.EIP1559) {
+      const { maxPriorityFeePerGas } = transactionManager.feeManager.currentFeeSettings;
+
+      const newMaxPriorityFeePerGas = maxBigNumber(originalTransaction.maxPriorityFeePerGas, maxPriorityFeePerGas).mul(2);
+
+      transactionManager.feeManager.changeMaxPriorityFeePerGas(formatUnits(newMaxPriorityFeePerGas, "gwei"));
+    } else {
+      const { gasPrice } = transactionManager.feeManager.currentFeeSettings;
+
+      const newGasPrice = maxBigNumber(originalTransaction.gasPrice, gasPrice).mul(2);
+
+      transactionManager.feeManager.changeGasPrice(formatUnits(newGasPrice, "gwei"));
+    }
+  }, [originalTransaction, transactionManager?.feeManager]);
+
   const onConfirm = async () => {
-    if (transactionManager && nonce) {
-      transactionManager.overrideNonce(nonce);
+    if (transactionManager && originalTransaction) {
+      const network = networkGetter(networkIdentifier);
+
+      if (!network) {
+        throw new Error("Unrecognized network");
+      }
+
+      const provider = ProviderManager.getProvider(network);
+
+      const receipt = await provider.getTransactionReceipt(originalTransaction.hash);
+
+      if (receipt?.status) {
+        console.error("Transaction already completed");
+
+        onCompleted();
+
+        return;
+      }
+
+      transactionManager.overrideNonce(originalTransaction.nonce);
 
       await transactionManager.sendTransaction();
 

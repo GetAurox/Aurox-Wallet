@@ -1,3 +1,5 @@
+import { HdPath } from "common/wallet";
+
 import { SignTypedDataPayload, TransactionRequest } from "./transaction";
 
 export type ChainType = "evm" | "solana" | "btc";
@@ -8,7 +10,7 @@ export type HardwareSignerType = "trezor" | "ledger";
 
 export type WalletSetupMethod = "create" | "import";
 
-type HardwareSupportedOperation = "signMessage" | "signTransaction" | "signTypedData";
+type HardwareSupportedOperation = "signMessage" | "signTransaction" | "signTypedData" | "getMultipleAddresses";
 
 export interface HardwareOperationBase {
   accountUUID: string;
@@ -33,4 +35,11 @@ export interface SignTypedData extends HardwareOperationBase {
   typedData: SignTypedDataPayload;
 }
 
-export type HardwareOperation = SignTransaction | SignMessage | SignTypedData;
+export interface GetMultipleAddresses extends HardwareOperationBase {
+  operationType: "getMultipleAddresses";
+  startIndex: number;
+  numberOfAddresses: number;
+  hdPath: HdPath;
+}
+
+export type HardwareOperation = SignTransaction | SignMessage | SignTypedData | GetMultipleAddresses;

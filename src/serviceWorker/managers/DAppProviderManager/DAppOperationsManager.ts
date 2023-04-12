@@ -1,12 +1,11 @@
+import { TypedEmitter } from "tiny-typed-emitter";
+
 import { DApp as DAppEvents } from "common/events";
 import { Operation, OperationResponse } from "common/types";
 import { PublicDAppOperationsState } from "common/states";
 import { ErrorCodes, ProviderRpcError } from "common/errors";
 import { getContractABI, getNetworkDefinitionFromIdentifier, isApproval } from "common/utils";
-
-import { ERC20Approval } from "ui/common/tokens";
-
-import { TypedEmitter } from "tiny-typed-emitter";
+import { ERC20__factory } from "common/wallet/typechain";
 
 import { WindowManager } from "./WindowManager";
 
@@ -58,7 +57,7 @@ export class DAppOperationsManager extends TypedEmitter<DAppOperationsManagerEve
       let contractABI = "";
 
       if (isApproval(operation.transactionPayload.data)) {
-        contractABI = ERC20Approval.ABI;
+        contractABI = JSON.stringify(ERC20__factory.abi);
       } else {
         const { chainId } = getNetworkDefinitionFromIdentifier(operation.networkIdentifier);
 

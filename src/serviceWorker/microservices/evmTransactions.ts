@@ -7,6 +7,7 @@ import {
   EVMTransactionsOperationManager,
   EVMTransactionsStorageManager,
   DAppOperationsManager,
+  EVMTransactionsSimulationManager,
 } from "serviceWorker/managers";
 
 export async function setupEVMTransactionsService(
@@ -17,6 +18,8 @@ export async function setupEVMTransactionsService(
   const storageManager = await EVMTransactionsStorageManager.initialize(walletManager, networkManager);
 
   const operationManager = new EVMTransactionsOperationManager(walletManager, networkManager, storageManager, dappOperationsManager);
+
+  const simulationManager = new EVMTransactionsSimulationManager("alchemy");
 
   const provider = SecureEVMTransactionsState.buildProvider({ evmTransactionsData: storageManager.getEVMTransactionsData() });
 
@@ -42,6 +45,10 @@ export async function setupEVMTransactionsService(
     await storageManager.updateEVMTransactionStatus(accountUUID, networkIdentifier, transactionHash, status);
   });
 
+  EVMTransactions.SimulateEVMTransactions.registerResponder(async ({ transactions, chainId }) => {
+    return await simulationManager.simulate(transactions, chainId);
+  });
+
   Wallet.SignTypedDataV2.registerResponder(async ({ accountUUID, data, dappOperationId }) => {
     return await operationManager.signTypedData(accountUUID, data, dappOperationId);
   });
@@ -50,5 +57,5 @@ export async function setupEVMTransactionsService(
     return await operationManager.signMessage(uuid, message, unsafeWithoutPrefix, dappOperationId);
   });
 
-  return { storageManager, operationManager, provider };
+  return { storageManager, operationManager, simulationManager, provider };
 }

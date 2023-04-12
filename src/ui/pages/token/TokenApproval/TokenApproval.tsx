@@ -6,7 +6,7 @@ import { Box, Typography, Link, ListItemText, Stack } from "@mui/material";
 
 import { createAssetKey, getAssetIdentifierFromDefinition } from "common/utils";
 import { DApp as DAppEvents } from "common/events";
-import { Operation } from "common/types";
+import { Operation, RawTransaction } from "common/types";
 
 import {
   useAccountByUUID,
@@ -20,8 +20,6 @@ import {
 
 import TokenContractInfo from "ui/components/entity/token/TokenContractInfo";
 import ContractAlertStatus from "ui/components/common/ContractAlertStatus";
-
-import { ERC20Approval } from "ui/common/tokens";
 
 import { formatValueFromAmountAndPrice } from "ui/common/utils";
 
@@ -37,20 +35,21 @@ import ErrorText from "ui/components/form/ErrorText";
 
 import AlertStatus from "ui/components/common/AlertStatus";
 
+import { decodeERC20Approval, getERC20Approval, isInfinite } from "ui/common/tokens";
+
 import EditTokenAmountModal from "./EditTokenAmountModal";
 
 export interface TokenApprovalProps {
   operation: Operation & { operationType: "transact" };
-
-  approval: ERC20Approval;
 }
 
 export default function TokenApproval(props: TokenApprovalProps) {
-  const { operation, approval } = props;
+  const { operation } = props;
+
+  const tokenAddress = operation.transactionPayload.to;
+  const fromAddress = operation.transactionPayload.from;
 
   const [submitting, setSubmitting] = useState(false);
-
-  const modifiedOperation = { ...operation, transactionPayload: approval.transaction };
 
   const [notification, setNotification] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -58,11 +57,13 @@ export default function TokenApproval(props: TokenApprovalProps) {
   const [isEditAmountModalOpen, setIsEditAmountModalOpen] = useState(false);
 
   const [approvalAmount, setApprovalAmount] = useState(0);
+  const [transaction, setTransaction] = useState<RawTransaction>(operation.transactionPayload);
 
-  const { status } = useContractStatus(approval.tokenAddress, operation.networkIdentifier);
+  const modifiedOperation = { ...operation, transactionPayload: transaction };
+  const { status } = useContractStatus(tokenAddress, operation.networkIdentifier);
 
-  const { tokenInformation } = useTokenInformation(approval.tokenAddress, operation.networkIdentifier);
-  const { tokenBalance } = useTokenBalance(approval.tokenAddress, operation.networkIdentifier, approval.senderAddress);
+  const { tokenInformation } = useTokenInformation(tokenAddress, operation.networkIdentifier);
+  const { tokenBalance } = useTokenBalance(tokenAddress, operation.networkIdentifier, fromAddress);
 
   const { getTransactionExplorerLink } = useNetworkBlockchainExplorerLinkResolver(operation.networkIdentifier);
 
@@ -72,7 +73,7 @@ export default function TokenApproval(props: TokenApprovalProps) {
 
   const nativeCurrencySymbol = networkNativeCurrencyData[operation.networkIdentifier]?.symbol ?? "ETH";
 
-  const transactionManager = useTransactionManager(account, operation.networkIdentifier, approval.transaction);
+  const transactionManager = useTransactionManager(account, operation.networkIdentifier, transaction);
 
   // TODO: needs resilient to price not being available @nikola
   const assetIdentifier = getAssetIdentifierFromDefinition({
@@ -86,6 +87,8 @@ export default function TokenApproval(props: TokenApprovalProps) {
   const ticker = useTokenAssetTicker(assetKey);
 
   const [userPreferences] = useLocalUserPreferences();
+
+  const { allowance, spenderAddress } = decodeERC20Approval(transaction.data);
 
   const submitTransaction = async () => {
     if (!transactionManager || submitting) return;
@@ -118,10 +121,16 @@ export default function TokenApproval(props: TokenApprovalProps) {
   };
 
   const changeAmount = (amount: number) => {
-    const newAmount = ethers.utils.parseUnits(amount.toString(), tokenInformation?.decimals ?? DEFAULT_DECIMALS);
+    const allowance = ethers.utils.parseUnits(amount.toString(), tokenInformation?.decimals ?? DEFAULT_DECIMALS);
 
-    approval.updateAmount(newAmount);
+    const transaction = getERC20Approval({
+      allowance,
+      fromAddress,
+      spenderAddress,
+      tokenAddress,
+    });
 
+    setTransaction(transaction);
     setApprovalAmount(amount);
     setIsEditAmountModalOpen(false);
   };
@@ -132,9 +141,9 @@ export default function TokenApproval(props: TokenApprovalProps) {
   };
 
   const getEditableAmount = () => {
-    const requestedAmount = approval.isInfinite
+    const requestedAmount = isInfinite(allowance)
       ? "Infinite"
-      : ethers.utils.formatUnits(approval.amount, tokenInformation?.decimals ?? DEFAULT_DECIMALS);
+      : ethers.utils.formatUnits(allowance, tokenInformation?.decimals ?? DEFAULT_DECIMALS);
 
     const primary = (
       <Box display="flex" alignItems="center">
@@ -149,7 +158,7 @@ export default function TokenApproval(props: TokenApprovalProps) {
 
     const price = Number(ticker.priceUSD);
 
-    if (price && !approval.isInfinite) {
+    if (price && !isInfinite(allowance)) {
       const amount = Number(requestedAmount);
 
       const totalPrice = formatValueFromAmountAndPrice(amount, price, "~$");
@@ -175,7 +184,7 @@ export default function TokenApproval(props: TokenApprovalProps) {
       handleOnSubmit={submitTransaction}
       errorComponent={<ContractAlertStatus status={contractStatus} />}
     >
-      <TokenContractInfo dappUrl={operation.domain} contractAddress={approval.transaction.to} actionType="Approve">
+      <TokenContractInfo dappUrl={operation.domain} contractAddress={spenderAddress} actionType="Approve">
         {getEditableAmount()}
       </TokenContractInfo>
       <NetworkFeeV2 networkIdentifier={operation.networkIdentifier} feeManager={transactionManager?.feeManager ?? null} />

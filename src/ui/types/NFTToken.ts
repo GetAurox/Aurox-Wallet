@@ -1,3 +1,37 @@
+import { ChainType, ImportedAssetVisibility, NFTAssetDefinition, SupportedNFTContractType } from "common/types";
+
+export type FlatNFTBalanceInfo = NFTAssetDefinition & {
+  key: string;
+  networkIdentifier: string;
+  assetIdentifier: string;
+  chainType: ChainType;
+  chainId: number;
+  visibility: ImportedAssetVisibility;
+  verified: boolean;
+  autoImported: boolean;
+  symbol: string;
+  name: string;
+  decimals: number;
+  balance: string;
+  balanceUSDValue: string | null;
+  metadata: {
+    tokenId: string;
+    image: string | null;
+  };
+};
+
+export type NFTInformationMetadata = {
+  image: string | null;
+  name: string;
+  description: string;
+  owner: string;
+};
+
+export type NFTInformation = {
+  contractType: SupportedNFTContractType | null;
+  metadata: null | NFTInformationMetadata;
+};
+
 export interface NFTTokenTrait {
   order?: any;
   value: string;
