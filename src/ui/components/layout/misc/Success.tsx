@@ -1,6 +1,6 @@
-import { memo } from "react";
+import { memo, ReactNode } from "react";
 
-import { Box, Button, Typography, Theme } from "@mui/material";
+import { Box, Button, Typography, Theme, Stack, StackProps } from "@mui/material";
 
 import { IconSuccessCheckmark } from "ui/components/icons";
 
@@ -43,6 +43,8 @@ export interface SuccessProps {
   buttonDisabled?: boolean;
   onButtonClick?: () => void;
   buttonLabel?: string;
+  children?: ReactNode;
+  contentWrapper?: StackProps;
 }
 
 export default memo(function Success(props: SuccessProps) {
@@ -52,6 +54,8 @@ export default memo(function Success(props: SuccessProps) {
     buttonDisabled,
     onButtonClick,
     buttonLabel = "OK",
+    children,
+    contentWrapper,
   } = props;
 
   return (
@@ -73,9 +77,12 @@ export default memo(function Success(props: SuccessProps) {
           </Typography>
         )}
       </Box>
-      <Button variant="contained" fullWidth disabled={buttonDisabled} onClick={onButtonClick}>
-        {buttonLabel}
-      </Button>
+      <Stack direction="column" {...contentWrapper}>
+        {children}
+        <Button variant="contained" fullWidth disabled={buttonDisabled} onClick={onButtonClick}>
+          {buttonLabel}
+        </Button>
+      </Stack>
     </Box>
   );
 });

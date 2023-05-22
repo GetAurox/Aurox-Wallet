@@ -24,7 +24,7 @@ export function useApplyTokenDisplayMarketTicker(
       priceUSDChange24H: String(ticker.change24H),
       priceChange24HPercent: String(ticker.change24HPercent),
       volumeUSD24H: String(ticker.volume24H),
-      balanceUSD: Number((Number(tokenWithTicker.balance) * ticker.price).toFixed(2)).toString(),
+      balanceUSDValue: Number((Number(tokenWithTicker.balance) * ticker.price).toFixed(2)).toString(),
     };
   }, [ticker, tokenWithTicker]);
 }

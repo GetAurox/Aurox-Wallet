@@ -2,7 +2,7 @@
 import { BigNumber } from "@ethersproject/bignumber";
 
 export function restoreBigNumberFields<T>(target: any): T {
-  if (typeof target !== "object") {
+  if (typeof target !== "object" || target === undefined || target === null) {
     return target;
   }
 
@@ -13,6 +13,9 @@ export function restoreBigNumberFields<T>(target: any): T {
       restoredFields[key] = BigNumber.from(target[key]?.hex ?? target[key]?._hex);
     } catch {
       // Continue on error since this is not a big number field
+      if (typeof target[key] === "object") {
+        restoredFields[key] = restoreBigNumberFields(target[key]);
+      }
     }
   }
 

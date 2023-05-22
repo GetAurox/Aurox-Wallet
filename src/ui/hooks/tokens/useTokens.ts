@@ -9,11 +9,14 @@ import { useFetch } from "../utils";
 
 const clearText = (value: string) => value.replace(/"/g, "");
 
-export function useTokens(offset: number, search: string, limit = 100, favorites?: FavoriteAssets) {
+export function useTokens(offset: number, search: string, limit = 100, favorites?: FavoriteAssets, chainIds?: string[]) {
   const [tokens, setTokens] = useState<GraphQLMarketsAPICoin[]>([]);
 
   const searchQuery = search.length > 0 ? `, textQuery: "${clearText(search)}"` : "";
   const favoritesQuery = favorites ? `, assetId: [${favorites}]` : "";
+
+  // eslint-disable-next-line no-useless-escape, quotes, prettier/prettier
+  const chainId = chainIds && chainIds.length > 0 ? `"${chainIds.join('","')}"` : null;
 
   const { response, loading, error } = useFetch<GraphQLMarketsAPICoinsResponse>(
     {
@@ -22,7 +25,9 @@ export function useTokens(offset: number, search: string, limit = 100, favorites
       data: {
         query: `{
             market {
-              coins(offset: ${offset}, limit: ${limit}, orderBy: market_cap${searchQuery} ${favoritesQuery}) {
+              coins(offset: ${offset}, limit: ${limit}, orderBy: market_cap${searchQuery} ${favoritesQuery} ${
+          chainId ? `, chainId: [${chainId}]` : ""
+        }) {
                 id
                 sn: shortName
                 fn: fullName
@@ -30,7 +35,7 @@ export function useTokens(offset: number, search: string, limit = 100, favorites
                   c: color(format: svg)
                 }
                 t: tags
-                tokens {
+                tokens${chainId ? ` (chainId: [${chainId}])` : ""} {
                   address
                   assetId
                   pairId
@@ -49,7 +54,7 @@ export function useTokens(offset: number, search: string, limit = 100, favorites
           }`,
       },
     },
-    [offset, search, limit, favoritesQuery],
+    [offset, search, limit, chainId, favoritesQuery],
   );
 
   useEffect(() => {

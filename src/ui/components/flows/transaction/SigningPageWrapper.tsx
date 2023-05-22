@@ -9,6 +9,7 @@ import { useActiveAccount, useActiveAccountNetworkAddress, useDocumentTitle } fr
 
 import DefaultControls from "ui/components/controls/DefaultControls";
 import AccountManageItem from "ui/components/entity/account/AccountManageItem";
+import useAnalytics from "ui/common/analytics";
 
 export interface SigningPageWrapperProps {
   operation: Operation;
@@ -25,10 +26,20 @@ export default memo(function SigningPageWrapper(props: SigningPageWrapperProps) 
   const account = useActiveAccount();
   const address = useActiveAccountNetworkAddress();
 
+  const { trackButtonClicked } = useAnalytics();
+
   useDocumentTitle("Sign Transaction");
 
   const rejectTransaction = () => {
     DAppEvents.TransactionRequestResponded.broadcast(operation.id, null);
+
+    trackButtonClicked("Rejected Transaction");
+  };
+
+  const handleSubmit = () => {
+    trackButtonClicked("Submitted Transaction");
+
+    handleOnSubmit();
   };
 
   return (
@@ -49,7 +60,7 @@ export default memo(function SigningPageWrapper(props: SigningPageWrapperProps) 
         primary={submitText ?? "Submit Transaction"}
         secondary="Reject"
         disabledPrimary={!activeSubmit}
-        onPrimary={handleOnSubmit}
+        onPrimary={handleSubmit}
         onSecondary={rejectTransaction}
       />
     </>

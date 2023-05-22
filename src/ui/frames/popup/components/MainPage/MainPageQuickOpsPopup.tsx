@@ -1,15 +1,15 @@
-import { memo, MouseEvent } from "react";
+import { memo } from "react";
+import { Link } from "react-router-dom";
 import clsx from "clsx";
 
 import { makeStyles, useTheme } from "@mui/styles";
-
 import { Typography, Theme, Stack } from "@mui/material";
 
-import { useHistoryPush } from "ui/common/history";
-import { useActiveAccountNetworkAddress } from "ui/hooks";
+import useAnalytics from "ui/common/analytics";
+import { useActiveAccount, useActiveAccountNetworkAddress } from "ui/hooks";
 
-import { IconClose2, IconReceive, IconSend, IconSwap } from "ui/components/icons";
 import LegacyModal from "ui/components/common/LegacyModal";
+import { IconClose2, IconReceive, IconSend, IconSwap } from "ui/components/icons";
 
 const useStyles = makeStyles((theme: Theme) => ({
   wrap: {
@@ -27,6 +27,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     textDecoration: "none",
   },
   itemDisabled: {
+    pointerEvents: "none",
     color: theme.palette.text.secondary,
     cursor: "default",
   },
@@ -59,16 +60,23 @@ export default memo(function MainPageQuickOpsPopup(props: MainPageQuickOpsPopupP
   const classes = useStyles();
   const theme = useTheme<Theme>();
 
-  const push = useHistoryPush();
+  const { trackButtonClicked } = useAnalytics();
 
   const activeAccountNetworkAddress = useActiveAccountNetworkAddress();
+  const activeAccount = useActiveAccount();
 
-  const createHandleItemClick = (path: string) => (event: MouseEvent) => {
-    event.preventDefault();
+  const isHardwareWallet = activeAccount?.type === "hardware";
+
+  const handleSend = () => {
+    trackButtonClicked("Main Send");
 
     onClose();
+  };
 
-    push(path);
+  const handleSwap = () => {
+    trackButtonClicked("Main Swap");
+
+    onClose();
   };
 
   return (
@@ -82,7 +90,7 @@ export default memo(function MainPageQuickOpsPopup(props: MainPageQuickOpsPopupP
           Select an Action
         </Typography>
 
-        <a href="#" onClick={createHandleItemClick("/send-select")} className={classes.item}>
+        <Link to="/send-select" className={classes.item} onClick={handleSend}>
           <IconSend className={classes.icon} />
           <Stack ml={2}>
             <Typography className={classes.primary}>Send</Typography>
@@ -90,9 +98,9 @@ export default memo(function MainPageQuickOpsPopup(props: MainPageQuickOpsPopupP
               Transfer your tokens to another wallet
             </Typography>
           </Stack>
-        </a>
+        </Link>
 
-        <a href="#" onClick={createHandleItemClick(`/receive/${activeAccountNetworkAddress}`)} className={classes.item}>
+        <Link to={`/receive/${activeAccountNetworkAddress}`} onClick={onClose} className={classes.item}>
           <IconReceive className={classes.icon} />
           <Stack ml={2}>
             <Typography className={classes.primary}>Receive</Typography>
@@ -100,17 +108,17 @@ export default memo(function MainPageQuickOpsPopup(props: MainPageQuickOpsPopupP
               Show your public wallet address
             </Typography>
           </Stack>
-        </a>
+        </Link>
 
-        <span className={clsx(classes.item, classes.itemDisabled)}>
-          <IconSwap className={classes.icon} />
+        <Link to="/swap" onClick={handleSwap} className={clsx(classes.item, isHardwareWallet && classes.itemDisabled)}>
+          <IconSwap color={isHardwareWallet ? undefined : theme.palette.primary.main} className={classes.icon} />
           <Stack ml={2}>
             <Typography className={classes.primary}>Swap</Typography>
             <Typography variant="medium" mt={0.5} color={theme.palette.text.secondary}>
-              Gasless swapping is being finished & will be available soon.
+              {isHardwareWallet ? "Swapping with Hardware Wallets will be supported soon." : "Trade your tokens"}
             </Typography>
           </Stack>
-        </span>
+        </Link>
       </div>
     </LegacyModal>
   );

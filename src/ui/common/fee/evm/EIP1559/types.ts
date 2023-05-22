@@ -25,7 +25,7 @@ export interface FeeSettings<S, T = FeeConfigurationEIP1559<S>> {
 
 export interface FeeHistory {
   baseFeePerGas: string[];
-  gasUsedRation: number[];
+  gasUsedRatio: number[];
   oldestBlock: string;
   reward: string[][];
 }

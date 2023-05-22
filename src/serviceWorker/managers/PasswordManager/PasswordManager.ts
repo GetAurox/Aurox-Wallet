@@ -1,11 +1,5 @@
 import { TypedEmitter } from "tiny-typed-emitter";
 
-import {
-  memorizePasswordToWorkaroundSW5MinuteDeathmark,
-  recallPasswordToWorkaroundSW5MinuteDeathmark,
-  removePasswordToWorkaroundSW5MinuteDeathmark,
-} from "common/chrome/workarounds/sw5MinuteDeathmark/sessionSecrets";
-
 import { loadHashedPasswordFromLocalArea, saveHashedPasswordToLocalArea } from "common/storage";
 import { hashPassword, verifyPassword } from "common/crypto";
 
@@ -53,8 +47,6 @@ export class PasswordManager extends TypedEmitter<PasswordManagerEvents> {
 
       this._hash = result.hash;
       this._salt = result.salt;
-
-      this._password = await recallPasswordToWorkaroundSW5MinuteDeathmark();
     }
 
     this._initialized = true;
@@ -64,7 +56,6 @@ export class PasswordManager extends TypedEmitter<PasswordManagerEvents> {
 
   public async lock() {
     this._password = null;
-    await removePasswordToWorkaroundSW5MinuteDeathmark();
 
     this.emit("password-lockdown");
   }
@@ -84,8 +75,6 @@ export class PasswordManager extends TypedEmitter<PasswordManagerEvents> {
     this._salt = salt;
 
     this._password = newPassword;
-
-    await memorizePasswordToWorkaroundSW5MinuteDeathmark(newPassword);
 
     this.emit("password-created");
     this.emit("password-ready");
@@ -117,8 +106,6 @@ export class PasswordManager extends TypedEmitter<PasswordManagerEvents> {
     if (result) {
       this._password = password;
 
-      await memorizePasswordToWorkaroundSW5MinuteDeathmark(password);
-
       this.emit("password-verified");
       this.emit("password-ready");
     }
@@ -147,8 +134,6 @@ export class PasswordManager extends TypedEmitter<PasswordManagerEvents> {
     this._salt = salt;
 
     this._password = newPassword;
-
-    await memorizePasswordToWorkaroundSW5MinuteDeathmark(newPassword);
 
     this.emit("password-changed", oldPassword);
   }

@@ -64,7 +64,7 @@ export default memo(function ManageTokenListItem(props: ManageTokenListItemProps
           <Checkbox onChange={handleSelect} checked={selected} sx={sxStyles.checkbox} />
         </ListItemIcon>
         <ListItemAvatar sx={sxStyles.listItemAvatar}>
-          <NFTAvatar src={nft.img.src} alt={name}>
+          <NFTAvatar src={nft.img.src} alt={name} networkIdentifier={nft.networkIdentifier}>
             <IconPlaceholderNFT />
           </NFTAvatar>
         </ListItemAvatar>

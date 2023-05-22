@@ -102,7 +102,7 @@ export default function NetworksSelection() {
           primary="Save"
           onPrimary={handleSave}
           disabledPrimary={selected.length < 1 || isEqual(enabledNetworkIdentifiers, selected)}
-          secondary="Add Network"
+          secondary="Add Custom Network"
           onSecondary={handleAdd}
         />
       </Stack>

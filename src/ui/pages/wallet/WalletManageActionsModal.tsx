@@ -1,10 +1,11 @@
-import { useHistoryPush } from "ui/common/history";
-
 import { Button, Stack, Divider } from "@mui/material";
 
-import DialogBase from "ui/components/common/DialogBase";
-
 import { HARDWARE_FILENAME } from "common/entities";
+
+import { useHistoryPush } from "ui/common/history";
+import useAnalytics from "ui/common/analytics";
+
+import DialogBase from "ui/components/common/DialogBase";
 
 const sxStyles = {
   actionButton: {
@@ -35,16 +36,23 @@ export const WalletManageActionsModal = (props: ActionsModalProps) => {
   const { isOpen, onClose } = props;
 
   const push = useHistoryPush();
+  const { trackButtonClicked } = useAnalytics();
 
   const handleCreateNewWallet = () => {
+    trackButtonClicked("Create New Wallet");
+
     push("/create-account");
   };
 
   const handleImportWallet = () => {
+    trackButtonClicked("Import Wallet");
+
     push("/import-account");
   };
 
   const handleImportHardwareWallet = () => {
+    trackButtonClicked("Import Hardware Wallet");
+
     chrome.tabs.create({ url: HARDWARE_FILENAME });
   };
 

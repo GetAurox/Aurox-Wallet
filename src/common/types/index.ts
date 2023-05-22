@@ -14,4 +14,4 @@ export * from "./state";
 export * from "./swap";
 export * from "./token";
 export * from "./transaction";
-export * from "./simulation"
+export * from "./simulation";

@@ -1,4 +1,4 @@
-import { ChangeEvent, ReactNode, useState } from "react";
+import { ChangeEvent, ReactNode, memo, useState } from "react";
 
 import { Button, Stack, Box, Typography, IconButton } from "@mui/material";
 import WarningIcon from "@mui/icons-material/Warning";
@@ -11,12 +11,11 @@ import { useAddressIsContract, useNativeTokenMarketTicker } from "ui/hooks";
 import { isDomainName, isEthereumAddress } from "ui/common/validators";
 import { TokenDisplayWithTicker } from "ui/types";
 import { formatAmount } from "ui/common/utils";
-import { EVMFeeManager } from "ui/common/fee";
+import { EVMFeeStrategy } from "ui/common/fee";
 
 import TokenAmountSelector from "ui/components/entity/token/TokenAmountSelector";
 import ApproximateFee from "ui/components/flows/feeSelection/ApproximateFee";
 import CurrentNetworkInfo from "ui/components/flows/info/CurrentNetworkInfo";
-// import MemoInput from "ui/components/flows/info/MemoInput";
 import FormField from "ui/components/form/FormField";
 import ErrorText from "ui/components/form/ErrorText";
 
@@ -35,9 +34,7 @@ export interface StageSetupProps {
   amount: string;
   onAmountChange: (amount: string) => void;
   exceedsBalance: boolean;
-  // memo: string;
-  // onMemoChange: (memo: string) => void;
-  feeManager: EVMFeeManager | null;
+  feeManager: EVMFeeStrategy | null;
   onPreview: () => void;
   onWarning: () => void;
   error: string | null;
@@ -45,7 +42,7 @@ export interface StageSetupProps {
   stepButtonDisabled: boolean;
 }
 
-export default function StageSetup(props: StageSetupProps) {
+export default memo(function StageSetup(props: StageSetupProps) {
   const {
     selectedToken,
     selectedTokenNetwork,
@@ -59,8 +56,6 @@ export default function StageSetup(props: StageSetupProps) {
     amount,
     onAmountChange,
     exceedsBalance,
-    // memo,
-    // onMemoChange,
     feeManager,
     onPreview,
     onWarning,
@@ -147,9 +142,9 @@ export default function StageSetup(props: StageSetupProps) {
     </Box>
   );
 
-  const feePrice = Number(feeManager?.feePriceInNativeCurrency) * Number(nativeToken?.priceUSD);
-  const normalizedBalance = !selectedToken.balance ? "0" : selectedToken.balance;
-  const normalizedPrice = !selectedToken.priceUSD ? "0" : selectedToken.priceUSD;
+  const feePriceUSD = Number(feeManager?.feePriceInNativeCurrency) * Number(nativeToken?.priceUSD);
+  const normalizedBalance = selectedToken?.balance ?? "0";
+  const normalizedPrice = selectedToken?.priceUSD ?? "0";
   const formattedBalance = formatAmount(normalizedBalance);
 
   const amountInputRender = (
@@ -161,15 +156,15 @@ export default function StageSetup(props: StageSetupProps) {
         </Typography>
       </Stack>
       <TokenAmountSelector
-        currency={selectedToken.symbol}
-        decimals={selectedToken.decimals}
-        selectedTokenType={selectedToken.assetDefinition.type}
         amount={amount}
-        balance={normalizedBalance}
-        feePrice={feePrice}
+        error={exceedsBalance}
         price={normalizedPrice}
         onChange={onAmountChange}
-        error={exceedsBalance}
+        balance={normalizedBalance}
+        currency={selectedToken.symbol}
+        decimals={selectedToken.decimals}
+        feePrice={feeManager?.feePrice?.toString()}
+        selectedTokenType={selectedToken.assetDefinition.type}
         errorText={exceedsBalance ? `Amount must not exceed balance (${formattedBalance} ${selectedToken.symbol})` : undefined}
       />
     </>
@@ -180,11 +175,10 @@ export default function StageSetup(props: StageSetupProps) {
       <Stack width={1} px={2}>
         {recipientInputRender}
         {amountInputRender}
-        {/* <MemoInput memo={memo} onChange={onMemoChange} /> */}
         <CurrentNetworkInfo networkName={selectedTokenNetwork?.name} />
       </Stack>
       <Box flexGrow={1} />
-      <ApproximateFee fee={feePrice} />
+      <ApproximateFee fee={feePriceUSD} />
       <ErrorText error={error} mt={1} justifyContent="center" />
       {notEnoughFunds && (
         <ErrorText error={`You do not have enough ${nativeCurrencySymbol} to pay for the network fee`} mt={1} justifyContent="center" />
@@ -195,4 +189,4 @@ export default function StageSetup(props: StageSetupProps) {
       <WalletSelectorSendModal open={isWalletSelectorOpen} onSelect={handleWalletSelectorSelect} onClose={handleWalletSelectorClose} />
     </>
   );
-}
+});

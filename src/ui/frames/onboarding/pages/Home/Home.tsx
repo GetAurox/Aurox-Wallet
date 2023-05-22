@@ -10,6 +10,8 @@ import { Creation } from "./components/Creation";
 import { PlayReel } from "./components/PlayReel";
 import { TextSection } from "./components/TextSection";
 
+import "./home.css";
+
 export default function Home() {
   const navigate = useNavigate();
   const { data: onboardingData } = useOnboardingData();

@@ -1,19 +1,28 @@
 import { TypedEmitter } from "tiny-typed-emitter";
+import { MaxUint256 } from "@ethersproject/constants";
 
 import { loadNonceFromSyncArea, saveNonceToSyncArea } from "common/storage";
 import {
-  AccountInfo,
   EVMTransactionStatus,
   HardwareOperation,
   SignTypedDataPayload,
   TransactionRequest,
   SendTransactionMetadata,
+  BlockchainNetwork,
 } from "common/types";
 import { EVMProvider, JsonRPCProviderWithRetry, ProviderManager } from "common/wallet";
+import { EVMTransactions } from "common/operations";
+
 import { HARDWARE_URL } from "common/entities";
 
 import { SecureHardwareState } from "common/states";
 import { Hardware as HardwareEvents } from "common/events";
+
+import { parseEthersRPCError } from "common/errors";
+
+import { TransactionResponse } from "@ethersproject/abstract-provider";
+
+import { EIP1559FeeManager, LegacyFeeManager, TransactionType } from "ui/common/fee";
 
 import { NetworkManager } from "../NetworkManager";
 import { WalletManager } from "../WalletManager";
@@ -48,13 +57,95 @@ export class EVMTransactionsOperationManager extends TypedEmitter<EVMTransaction
     this.#dappOperationsManager = dappOperationsManager;
   }
 
-  async send(
-    accountUUID: string,
-    networkIdentifier: string,
-    transaction: TransactionRequest,
-    dappOperationId?: string,
-    metadata?: SendTransactionMetadata,
-  ) {
+  async #send(accountUUID: string, network: BlockchainNetwork, transactionRequest: TransactionRequest, metadata?: SendTransactionMetadata) {
+    try {
+      const { provider } = ProviderManager.getProvider(network) as EVMProvider;
+
+      let transaction = { ...transactionRequest };
+
+      if (metadata?.recalculateFees) {
+        const FeeManager = transaction.type === TransactionType.EIP1559 ? EIP1559FeeManager : LegacyFeeManager;
+
+        const { provider } = ProviderManager.getProvider(network) as EVMProvider;
+
+        const manager = new FeeManager(transaction, provider, MaxUint256);
+
+        await manager.updateFees();
+
+        transaction = { ...transaction, ...manager.feeSettingsForEthereum };
+      }
+
+      const nonce = await this.getNonce(accountUUID, network.identifier);
+
+      const saveNonceOnComplete = !metadata?.nonce || metadata.nonce >= nonce;
+
+      transaction.nonce = saveNonceOnComplete ? nonce : metadata.nonce!;
+      transaction.value = transaction.value || "0x0";
+      transaction.chainId = network.chainId;
+
+      const signedTransaction = await this.signTransaction(accountUUID, network.identifier, transaction, metadata?.operationId);
+
+      const response = await provider.sendTransaction(signedTransaction);
+
+      if (!response) {
+        // This is a safeguard, response should not be null, ever, but if it is, we should raise an error
+        throw new Error("Unknown error occured, failed to get transaction response");
+      }
+
+      response.wait(1).then(() => {
+        this.emit("evm-transaction-confirmed", {
+          title: metadata?.title ?? "Confirmed",
+          message: `${metadata?.message ?? "Transaction"} confirmed`,
+          blockExplorerURL: metadata?.blockExplorerTxBaseURL ? `${metadata.blockExplorerTxBaseURL}${response.hash}` : null,
+        });
+      });
+
+      this.#storageManager.saveEVMTransactions(accountUUID, network.identifier, [
+        {
+          networkIdentifier: network.identifier,
+          accountUUID,
+          status: EVMTransactionStatus.Pending,
+          transaction: { ...transaction, hash: response.hash },
+          timestamp: Math.round(Date.now() / 1000),
+          txHash: response.hash,
+        },
+      ]);
+
+      if (saveNonceOnComplete) {
+        this.saveNonce(accountUUID, network.identifier, transaction.nonce + 1);
+      }
+
+      return response;
+    } catch (error) {
+      throw new Error(parseEthersRPCError(error) ?? error);
+    }
+  }
+
+  async send(request: EVMTransactions.SendEVMTransaction.Request) {
+    const { accountUUID, networkIdentifier, transactions, executionOrder } = request;
+
+    const network = this.#networkManager.getNetworkByIdentifier(networkIdentifier);
+
+    if (!network) {
+      throw new Error(`Network with ${networkIdentifier} is not found`);
+    }
+
+    const responses: TransactionResponse[] = [];
+
+    for (const { transaction, metadata } of transactions) {
+      const response = await this.#send(accountUUID, network, transaction, metadata);
+
+      responses.push(response);
+
+      if (executionOrder === "sequential") {
+        await response.wait(1);
+      }
+    }
+
+    return responses;
+  }
+
+  async signTransaction(accountUUID: string, networkIdentifier: string, transaction: TransactionRequest, dappOperationId?: string) {
     const account = this.#walletManager.getAllAccountInfo().find(account => account.uuid === accountUUID);
 
     if (!account) {
@@ -67,62 +158,12 @@ export class EVMTransactionsOperationManager extends TypedEmitter<EVMTransaction
       throw new Error(`Network with ${networkIdentifier} is not found`);
     }
 
-    const nonce = await this.#getNonce(accountUUID, networkIdentifier);
-
-    const saveNonceOnComplete = !transaction.nonce || transaction.nonce >= nonce;
-
-    if (saveNonceOnComplete) {
-      transaction.nonce = nonce;
-    }
-
     if (!transaction.value) {
       transaction.value = "0x0";
     }
 
     transaction.chainId = network.chainId;
 
-    const { provider } = ProviderManager.getProvider(network) as EVMProvider;
-
-    try {
-      const signedTransaction = await this.signTransaction(account, transaction, dappOperationId);
-
-      const response = await provider.sendTransaction(signedTransaction);
-
-      if (!response) {
-        // This is a safeguard, response should not be null, ever, but if it is, we should raise an error
-        throw new Error(`Unknown error occured, failed to get transaction response`);
-      }
-
-      response.wait(1).then(() => {
-        this.emit("evm-transaction-confirmed", {
-          title: metadata?.title ?? "Confirmed",
-          message: `${metadata?.message ?? "Transaction"} confirmed`,
-          blockExplorerURL: metadata?.blockExplorerTxBaseURL ? `${metadata.blockExplorerTxBaseURL}${response.hash}` : null,
-        });
-      });
-
-      this.#storageManager.saveEVMTransactions(accountUUID, networkIdentifier, [
-        {
-          networkIdentifier,
-          accountUUID,
-          status: EVMTransactionStatus.Pending,
-          transaction: response,
-          timestamp: Math.round(Date.now() / 1000),
-          txHash: response.hash,
-        },
-      ]);
-
-      if (saveNonceOnComplete) {
-        this.#saveNonce(accountUUID, networkIdentifier, transaction.nonce + 1);
-      }
-
-      return response;
-    } catch (error) {
-      throw new Error(error);
-    }
-  }
-
-  async signTransaction(account: AccountInfo, transaction: TransactionRequest, dappOperationId?: string) {
     // If Mnemonic or Private-Key types get the Service Worker to sign
     if (account.type === "mnemonic" || account.type === "private-key") {
       return await this.#walletManager.signTransaction("evm", account.uuid, { type: "evm", params: transaction });
@@ -241,11 +282,11 @@ export class EVMTransactionsOperationManager extends TypedEmitter<EVMTransaction
     });
   }
 
-  async #saveNonce(accountUUID: string, networkIdentifier: string, nonce: number) {
+  async saveNonce(accountUUID: string, networkIdentifier: string, nonce: number) {
     await saveNonceToSyncArea(accountUUID, networkIdentifier, nonce);
   }
 
-  async #getNonce(accountUUID: string, networkIdentifier: string): Promise<number> {
+  async getNonce(accountUUID: string, networkIdentifier: string): Promise<number> {
     const network = this.#networkManager.getNetworkByIdentifier(networkIdentifier);
 
     if (!network) {

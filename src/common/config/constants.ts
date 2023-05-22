@@ -55,5 +55,11 @@ export const ARBITRUM_CHAIN_ID = 42161;
 
 export const OPTIMISM_CHAIN_ID = 10;
 
+export const GNOSIS_CHAIN_ID = 100;
+
+export const KLAYTN_CHAIN_ID = 8217;
+
+export const AURORA_CHAIN_ID = 1313161554;
+
 export const REWARD_AFFILIATE_REFERRAL_LINK_COOKIE_NAME = "__aurox_referral_link";
 export const REWARD_AFFILIATE_REFERRAL_LINK_DOMAIN = "getaurox.com";

@@ -1,9 +1,10 @@
 import axios from "axios";
+import { TransactionRequest } from "@ethersproject/abstract-provider";
 
 import { AddressZero } from "@ethersproject/constants";
 import { formatEther } from "ethers/lib/utils";
 
-import { BlockNative, TransactionRequest, Simulation } from "common/types";
+import { BlockNative, Simulation } from "common/types";
 import { BLOCKNATIVE_API_KEY, BLOCKNATIVE_SECRET_KEY, BLOCKNATIVE_URL, DEFAULT_DECIMALS, ETH_ADDRESS } from "common/config";
 
 import { isAddressEqual } from "../utils";
@@ -23,11 +24,15 @@ const client = axios.create({
 });
 
 function createTopUpTransaction(transaction: TransactionRequest): BlockNative.Transaction {
+  if (!transaction.from) {
+    throw new Error("Field `from` is mandatory for creating top up transaction");
+  }
+
   const ethTransferGasLimit = 21000;
   const simulationETHAmount = 10 ** 18; // 1 ETH
 
   return {
-    to: transaction.from,
+    to: transaction.from!,
     from: AddressZero,
     gas: ethTransferGasLimit,
     maxPriorityFeePerGas: Number(transaction.maxPriorityFeePerGas),
@@ -42,18 +47,22 @@ function prepareRequest(transaction: TransactionRequest): BlockNative.Transactio
     throw new Error("Missing required 'to' field from transaction payload");
   }
 
+  if (!transaction.from) {
+    throw new Error("Missing required 'from' field from transaction payload");
+  }
+
   return {
     to: transaction.to,
-    from: transaction.from,
+    from: transaction.from!,
     gas: Number(transaction.gasLimit),
     maxPriorityFeePerGas: Number(transaction.maxPriorityFeePerGas),
     maxFeePerGas: Number(transaction.maxFeePerGas) * 2,
-    input: transaction.data,
+    input: String(transaction.data),
     value: Number(transaction.value),
   };
 }
 
-export function normalizeResponse(address: string, result: BlockNative.SimulationResponse): Simulation.Result {
+export function normalizeResponse(address: string | undefined, result: BlockNative.SimulationResponse): Simulation.Result {
   if (result.error.length > 0) {
     throw new Error(result.error.join("\n"));
   }
@@ -79,7 +88,11 @@ export function normalizeResponse(address: string, result: BlockNative.Simulatio
     .map(call => normalizeContractCall(call.contractCall!));
 
   const balanceChanges = netBalanceChanges.map(balanceChanges => {
-    const accountBalanceChange = balanceChanges.find(change => isAddressEqual(change.address, address))!;
+    const accountBalanceChange = balanceChanges.find(change => isAddressEqual(change.address, address));
+
+    if (!accountBalanceChange) {
+      return [];
+    }
 
     return accountBalanceChange.balanceChanges.map<Simulation.BalanceChange>(balanceChange => {
       const balanceChangeMetadata = {
@@ -128,7 +141,7 @@ export async function simulate(transactions: TransactionRequest[]): Promise<Simu
 
     const { data } = await client.post<BlockNative.SimulationResponse>("/simulate", request);
 
-    return normalizeResponse(transaction.from, data);
+    return normalizeResponse(transaction.from!, data);
   } catch (error) {
     console.error("Failed to simulate with blocknative", error);
 

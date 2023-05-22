@@ -42,7 +42,7 @@ export default function NetworksEnabled() {
           />
         ))}
       </List>
-      <DefaultControls primary="Add Network" onPrimary={handleAddNetwork} />
+      <DefaultControls primary="Add / Remove Networks" onPrimary={handleAddNetwork} />
     </>
   );
 }

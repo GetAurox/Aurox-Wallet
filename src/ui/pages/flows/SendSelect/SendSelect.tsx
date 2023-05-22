@@ -1,5 +1,5 @@
+import { useMemo, ChangeEvent } from "react";
 import { FixedSizeList } from "react-window";
-import { ChangeEvent } from "react";
 import orderBy from "lodash/orderBy";
 
 import { Stack, Box, Divider, inputBaseClasses, Typography } from "@mui/material";
@@ -44,7 +44,7 @@ export function SendSelect() {
 
   const getNetwork = useNetworkGetter();
 
-  const visibleTokens = tokens.filter(applyTokenAssetVisibilityRules);
+  const visibleTokens = useMemo(() => tokens.filter(applyTokenAssetVisibilityRules), [tokens]);
 
   const { fuzzyResults, onSearch }: TokenFuzzyResult = useFuse<TokenDisplayWithTicker>(visibleTokens, {
     keys: ["name", "symbol", "assetDefinition.contractAddress"],

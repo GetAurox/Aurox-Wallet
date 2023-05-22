@@ -14,6 +14,10 @@ const SlippageButton = styled(Button)({
     padding: 8,
     borderRadius: 4,
   },
+  [`&.${buttonClasses.sizeSmall}`]: {
+    padding: "4px 8px",
+    borderRadius: 8,
+  },
 });
 
 const CloseButton = styled(IconButton)({

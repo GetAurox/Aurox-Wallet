@@ -1,5 +1,6 @@
 import { BigNumber } from "ethers";
 import { Deferrable } from "ethers/lib/utils";
+
 import { TransactionRequest } from "@ethersproject/abstract-provider";
 
 import { FeeConfigurationLegacy, LegacyFeeManager } from "./Legacy";
@@ -9,7 +10,7 @@ import { EVMFeePreference } from "./types";
 export type EVMFeeConfiguration = FeeConfigurationLegacy<BigNumber> | FeeConfigurationEIP1559<BigNumber>;
 export type SupportedFeeConfigurationViews = FeeConfigurationLegacy<string> | FeeConfigurationEIP1559<string>;
 
-export type EVMFeeManager = LegacyFeeManager | EIP1559FeeManager;
+export type EVMFeeStrategy = LegacyFeeManager | EIP1559FeeManager;
 
 export interface EVMFeeManagerInterface<T> {
   /** Supported fee settings based on the transaction type */
@@ -31,14 +32,14 @@ export interface EVMFeeManagerInterface<T> {
    * */
   hasEnoughFunds: boolean | null;
 
+  /** Lowest denomination of the fee price */
+  feePrice: BigNumber | null;
+
   /** Fee settings with all numbers converted to Hex strings */
   feeSettingsForEthereum: SupportedFeeConfigurationViews | null;
 
   /** Fee settings with all numbers converted to human readable format */
   feeSettingsNormalized: SupportedFeeConfigurationViews | null;
-
-  /** Fee price total in wei */
-  feePrice: BigNumber | null;
 
   /** Total price in native EVM blockchain currency */
   feePriceInNativeCurrency: number | null;

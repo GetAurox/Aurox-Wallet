@@ -4,10 +4,9 @@ import { ThemeProvider, CssBaseline } from "@mui/material";
 import { Theme } from "@mui/material/styles";
 
 import { RewardSystemContextProvider } from "ui/common/rewardSystem";
-
 import { theme as defaultTheme } from "ui/common/theme";
-
 import { PersistentRouter } from "ui/common/history";
+import { AnalyticsProvider } from "ui/common/analytics";
 
 import RootErrorBoundary from "./RootErrorBoundary";
 
@@ -24,15 +23,17 @@ export default function Root(props: RootProps) {
   const { App, theme } = props;
 
   return (
-    <ThemeProvider theme={theme ?? defaultTheme}>
-      <PersistentRouter>
-        <RootErrorBoundary>
-          <RewardSystemContextProvider>
-            <App />
-          </RewardSystemContextProvider>
-        </RootErrorBoundary>
-      </PersistentRouter>
-      <CssBaseline />
-    </ThemeProvider>
+    <AnalyticsProvider>
+      <ThemeProvider theme={theme ?? defaultTheme}>
+        <PersistentRouter>
+          <RootErrorBoundary>
+            <RewardSystemContextProvider>
+              <App />
+            </RewardSystemContextProvider>
+          </RootErrorBoundary>
+        </PersistentRouter>
+        <CssBaseline />
+      </ThemeProvider>
+    </AnalyticsProvider>
   );
 }

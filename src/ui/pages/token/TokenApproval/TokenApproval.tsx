@@ -27,7 +27,7 @@ import TransactionPageWrapper from "ui/components/flows/transaction/TransactionP
 
 import { DEFAULT_DECIMALS, networkNativeCurrencyData } from "common/config";
 
-import NetworkFeeV2 from "ui/components/flows/feeSelection/NetworkFeeV2";
+import NetworkFee from "ui/components/flows/feeSelection/NetworkFee";
 
 import { useTransactionManager } from "ui/hooks/rpc";
 
@@ -102,12 +102,13 @@ export default function TokenApproval(props: TokenApprovalProps) {
     }
 
     try {
-      await transactionManager.sendTransaction(operation.id, {
+      const { hash } = await transactionManager.sendTransaction({
+        operationId: operation.id,
         message: `Approve ${tokenInformation?.name}`,
         blockExplorerTxBaseURL: getTransactionExplorerLink(""),
       });
 
-      DAppEvents.TransactionRequestResponded.broadcast(operation.id, transactionManager.transactionHash);
+      DAppEvents.TransactionRequestResponded.broadcast(operation.id, hash);
     } catch (error) {
       if (typeof error === "string") {
         setNotification(error);
@@ -173,7 +174,7 @@ export default function TokenApproval(props: TokenApprovalProps) {
 
   const requirePassword = contractStatus === "black";
 
-  const hasEnoughFunds = transactionManager?.feeManager?.hasEnoughFunds ?? true;
+  const hasEnoughFunds = transactionManager?.feeStrategy?.hasEnoughFunds ?? true;
 
   return (
     <TransactionPageWrapper
@@ -187,7 +188,7 @@ export default function TokenApproval(props: TokenApprovalProps) {
       <TokenContractInfo dappUrl={operation.domain} contractAddress={spenderAddress} actionType="Approve">
         {getEditableAmount()}
       </TokenContractInfo>
-      <NetworkFeeV2 networkIdentifier={operation.networkIdentifier} feeManager={transactionManager?.feeManager ?? null} />
+      <NetworkFee networkIdentifier={operation.networkIdentifier} feeManager={transactionManager?.feeStrategy ?? null} />
       {!hasEnoughFunds && (
         <ErrorText error={`You do not have enough ${nativeCurrencySymbol} to pay for the network fee`} mt={1} justifyContent="center" />
       )}

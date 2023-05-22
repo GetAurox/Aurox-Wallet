@@ -4,7 +4,6 @@ import random from "lodash/random";
 import { TokenSwapRoute } from "common/types";
 import { TokenDisplay } from "ui/types";
 
-export const mockTxHash = "0x123";
 export const submittingTransaction = false;
 
 const mockCoins = [
@@ -20,7 +19,7 @@ const mockCoins = [
 
 const mockProtocols = ["Uniswap V2", "Uniswap V3", "Defi Swap"];
 
-export function getSwapRoute(from: TokenDisplay, to: TokenDisplay) {
+export function getSwapRoute(from: Pick<TokenDisplay, "img" | "symbol" | "name">, to: Pick<TokenDisplay, "img" | "symbol" | "name">) {
   const iterations = Math.round(random(2, 8));
   const route: TokenSwapRoute = [
     {

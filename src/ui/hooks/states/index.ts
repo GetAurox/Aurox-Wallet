@@ -6,3 +6,4 @@ export * from "./network";
 export * from "./password";
 export * from "./wallet";
 export * from "./hardware";
+export * from "./gaslessTransaction";

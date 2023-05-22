@@ -7,8 +7,10 @@ import {
   EVMTransactionsOperationManager,
   EVMTransactionsStorageManager,
   DAppOperationsManager,
-  EVMTransactionsSimulationManager,
+  AlchemySimulator,
+  BlockNativeSimulator,
 } from "serviceWorker/managers";
+import { ETHEREUM_MAINNET_CHAIN_ID } from "common/config";
 
 export async function setupEVMTransactionsService(
   walletManager: WalletManager,
@@ -19,8 +21,6 @@ export async function setupEVMTransactionsService(
 
   const operationManager = new EVMTransactionsOperationManager(walletManager, networkManager, storageManager, dappOperationsManager);
 
-  const simulationManager = new EVMTransactionsSimulationManager("alchemy");
-
   const provider = SecureEVMTransactionsState.buildProvider({ evmTransactionsData: storageManager.getEVMTransactionsData() });
 
   storageManager.addListener("evm-transactions-updated", () => {
@@ -29,24 +29,32 @@ export async function setupEVMTransactionsService(
     });
   });
 
-  EVMTransactions.SendEVMTransaction.registerResponder(async ({ accountUUID, networkIdentifier, transaction, operationId, metadata }) => {
-    return await operationManager.send(accountUUID, networkIdentifier, transaction, operationId, metadata);
-  });
+  EVMTransactions.SendEVMTransaction.registerResponder((request: EVMTransactions.SendEVMTransaction.Request) =>
+    operationManager.send(request),
+  );
 
-  EVMTransactions.SaveEVMTransactions.registerResponder(async ({ accountUUID, networkIdentifier, transactions }) => {
-    await storageManager.saveEVMTransactions(accountUUID, networkIdentifier, transactions);
-  });
+  EVMTransactions.SaveEVMTransactions.registerResponder(({ accountUUID, networkIdentifier, transactions }) =>
+    storageManager.saveEVMTransactions(accountUUID, networkIdentifier, transactions),
+  );
 
-  EVMTransactions.DeleteEVMTransactions.registerResponder(async ({ accountUUID, networkIdentifier, txHashes }) => {
-    await storageManager.deleteEVMTransactions(accountUUID, networkIdentifier, txHashes);
-  });
+  EVMTransactions.DeleteEVMTransactions.registerResponder(({ accountUUID, networkIdentifier, txHashes }) =>
+    storageManager.deleteEVMTransactions(accountUUID, networkIdentifier, txHashes),
+  );
 
-  EVMTransactions.UpdateEVMTransactionStatus.registerResponder(async ({ accountUUID, networkIdentifier, transactionHash, status }) => {
-    await storageManager.updateEVMTransactionStatus(accountUUID, networkIdentifier, transactionHash, status);
-  });
+  EVMTransactions.UpdateEVMTransactionStatus.registerResponder(({ accountUUID, networkIdentifier, transactionHash, status }) =>
+    storageManager.updateEVMTransactionStatus(accountUUID, networkIdentifier, transactionHash, status),
+  );
 
-  EVMTransactions.SimulateEVMTransactions.registerResponder(async ({ transactions, chainId }) => {
-    return await simulationManager.simulate(transactions, chainId);
+  EVMTransactions.SimulateEVMTransactions.registerResponder(async ({ simulator, transactions, chainId }) => {
+    if (simulator === "alchemy") {
+      return AlchemySimulator.simulate(transactions, chainId);
+    }
+
+    if (simulator === "blocknative" && chainId === ETHEREUM_MAINNET_CHAIN_ID) {
+      return BlockNativeSimulator.simulate(transactions);
+    }
+
+    throw new Error(`Simulation can not be performed, got "${simulator}" for ${chainId}`);
   });
 
   Wallet.SignTypedDataV2.registerResponder(async ({ accountUUID, data, dappOperationId }) => {
@@ -57,5 +65,9 @@ export async function setupEVMTransactionsService(
     return await operationManager.signMessage(uuid, message, unsafeWithoutPrefix, dappOperationId);
   });
 
-  return { storageManager, operationManager, simulationManager, provider };
+  Wallet.SignTransactionV2.registerResponder(async ({ accountUUID, networkIdentifier, transaction }) => {
+    return await operationManager.signTransaction(accountUUID, networkIdentifier, transaction);
+  });
+
+  return { storageManager, operationManager, provider };
 }

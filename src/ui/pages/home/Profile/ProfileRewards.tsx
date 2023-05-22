@@ -2,14 +2,13 @@ import { ChangeEvent, useRef, useEffect, useState } from "react";
 
 import { Stack } from "@mui/material";
 
-import { IconArrow } from "ui/components/icons";
-import CommonListItem from "ui/components/common/CommonListItem";
-
+import useAnalytics from "ui/common/analytics";
+import { defaultTheme } from "ui/common/theme";
+import { useHistoryPush } from "ui/common/history";
 import { useRewardSystemNextLevelIndex, useRewardSystemAllLevelsData } from "ui/common/rewardSystem";
 
-import { useHistoryPush } from "ui/common/history";
-
-import { defaultTheme } from "ui/common/theme";
+import { IconArrow } from "ui/components/icons";
+import CommonListItem from "ui/components/common/CommonListItem";
 
 import ProfileRewardsPoints from "./ProfileRewardsPoints";
 import ProfileRewardsLevels from "./ProfileRewardsLevels";
@@ -38,6 +37,8 @@ export default function ProfileRewards() {
   const rewardSystemNextLevelIndex = useRewardSystemNextLevelIndex();
   const rewardSystemAllLevelsData = useRewardSystemAllLevelsData();
 
+  const { trackButtonClicked } = useAnalytics();
+
   const level = rewardSystemAllLevelsData[activeLevelIndex];
 
   const handleLevelChange = (event: ChangeEvent<unknown>, page: number) => {
@@ -46,6 +47,8 @@ export default function ProfileRewards() {
   };
 
   const handleOpenInvitePage = () => {
+    trackButtonClicked("View Referral Link");
+
     push("/invite");
   };
 

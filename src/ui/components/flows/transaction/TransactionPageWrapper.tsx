@@ -3,20 +3,19 @@ import { memo, ReactNode, SyntheticEvent, useState } from "react";
 import { Box, Collapse, Stack, Tab, Tabs, Theme, Typography } from "@mui/material";
 
 import { DApp as DAppEvents } from "common/events";
+import { decodeTransaction } from "common/utils";
+import { Password } from "common/operations";
 import { Operation } from "common/types";
+
+import useAnalytics from "ui/common/analytics";
 
 import { useAccountByUUID, useDocumentTitle } from "ui/hooks";
 
+import ExpandButton from "ui/components/styled/ExpandButton";
+import IconExpandMore from "ui/components/styled/IconExpandMore";
 import DefaultControls from "ui/components/controls/DefaultControls";
 import AccountManageItem from "ui/components/entity/account/AccountManageItem";
 import { TransactionDataTab, TransactionHexTab } from "ui/components/transactions";
-
-import ExpandButton from "ui/components/styled/ExpandButton";
-import IconExpandMore from "ui/components/styled/IconExpandMore";
-
-import { Password } from "common/operations";
-
-import { decodeTransaction } from "common/utils";
 
 import { TransactionConfirmation } from "./TransactionConfirmation";
 
@@ -44,10 +43,12 @@ export interface TransactionPageWrapperProps {
 export default memo(function TransactionPageWrapper(props: TransactionPageWrapperProps) {
   const { handleOnSubmit, operation, requirePassword, submitText, children, errorComponent, activeSubmit } = props;
 
+  const [collapsed, setCollapsed] = useState(false);
+
   const account = useAccountByUUID(operation.accountUUID);
   const address = operation.transactionPayload.from;
 
-  const [collapsed, setCollapsed] = useState(false);
+  const { trackButtonClicked } = useAnalytics();
 
   useDocumentTitle("Submit Transaction");
 
@@ -64,6 +65,8 @@ export default memo(function TransactionPageWrapper(props: TransactionPageWrappe
 
   const rejectTransaction = () => {
     DAppEvents.TransactionRequestResponded.broadcast(operation.id, null);
+
+    trackButtonClicked("Rejected Transaction");
   };
 
   const handleMainTab = (event: SyntheticEvent, newTab: number) => {
@@ -93,6 +96,8 @@ export default memo(function TransactionPageWrapper(props: TransactionPageWrappe
 
     if ((requirePassword && validPassword && checkboxConfirmed) || !requirePassword) {
       handleOnSubmit();
+
+      trackButtonClicked("Submitted Transaction");
     }
   };
 

@@ -1,3 +1,4 @@
 export * from "./EVMTransactionsStorageManager";
 export * from "./EVMTransactionsOperationManager";
-export * from "./EVMTransactionsSimulationManager";
+export * from "./EVMTransactionsGaslessManager";
+export * from "./simulators";

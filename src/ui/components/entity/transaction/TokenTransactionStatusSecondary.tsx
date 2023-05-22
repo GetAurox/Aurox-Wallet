@@ -25,7 +25,7 @@ export interface TokenTransactionStatusSecondaryProps {
 }
 
 export default function TokenTransactionStatusSecondary(props: TokenTransactionStatusSecondaryProps) {
-  const { date, status, txHash, networkIdentifier = "" } = props.item;
+  const { date, status, txHash, networkIdentifier = "", gasless } = props.item;
 
   const activeAccount = useActiveAccount();
 
@@ -34,7 +34,7 @@ export default function TokenTransactionStatusSecondary(props: TokenTransactionS
 
   const txExplorerLink = getTransactionExplorerLink(txHash);
 
-  if (status === "pending" && activeAccount) {
+  if (status === "pending" && activeAccount && !gasless) {
     return (
       <TokenTransactionActions accountUUID={activeAccount.uuid} networkIdentifier={networkIdentifier} transactionHash={txHash} mt="7px" />
     );

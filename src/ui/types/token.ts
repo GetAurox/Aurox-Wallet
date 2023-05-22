@@ -59,6 +59,8 @@ export interface TokenTicker extends TokenIdentity {
 
 export type TokenDisplayWithTicker = TokenDisplay & TokenTicker;
 
+export type TokenSwapDetails = Omit<TokenDisplay, "balance" | "balanceUSDValue">;
+
 export type TokenMarketDetailsSocialNetwork = "facebook" | "twitter" | "reddit" | "telegram" | "bitcointalk";
 
 export interface TokenMarketDetailsSocial {

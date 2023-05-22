@@ -1,32 +1,27 @@
-import { MouseEvent, ChangeEvent, useState } from "react";
+import { MouseEvent, useState, useEffect, useCallback, useRef } from "react";
 import capitalize from "lodash/capitalize";
-import { parseUnits } from "ethers/lib/utils";
 
-import { Theme, Box, Stack, Button, Collapse, Link, paperClasses, inputBaseClasses, Typography } from "@mui/material";
+import { Theme, Stack, Button, Collapse, Link, paperClasses, inputBaseClasses, Typography } from "@mui/material";
 
-import { formatAmount } from "ui/common/utils";
-
-import {
-  FeePreference,
-  FeeConfiguration,
-  feePreferences,
-  getFeeEstimatedSecondsPresentation,
-  getUpdatedFeeConfiguration,
-  defaultFeePreference,
-  getUpdatedFeeFields,
-} from "ui/common/fee";
-
-import { useNativeTokenMarketTicker } from "ui/hooks";
-
+import { formatAmount, formatValueFromAmountAndPrice, unformattedAmount } from "ui/common/utils";
 import IconExpandMore from "ui/components/styled/IconExpandMore";
 import ExpandButton from "ui/components/styled/ExpandButton";
 import DialogBase from "ui/components/common/DialogBase";
-import FormField from "ui/components/form/FormField";
+
+import { feePreferences, getFeeEstimatedSecondsPresentation, EVMFeeStrategy, EVMFeePreference, TransactionType } from "ui/common/fee";
+import { useNativeTokenMarketTicker, useNetworkByIdentifier } from "ui/hooks";
+
+import NumericField from "ui/components/form/NumericField";
 
 import FeeToggleButtonGroup from "./FeeToggleButtonGroup";
 import FeeToggleButton from "./FeeToggleButton";
 
 const sxStyles = {
+  expandButton: {
+    mt: "34px",
+    mx: "auto",
+    mb: "4px",
+  },
   formField: {
     inputPaper: {
       [`&.${paperClasses.root}`]: {
@@ -44,116 +39,93 @@ const sxStyles = {
   },
 };
 
-function handleEventInput(value: string): string {
-  if (!value.trim()) return "0";
-
-  return Number.isNaN(Number(value)) ? "0" : value;
-}
-
 export interface FeeModalProps {
-  onClose: () => void;
+  feeManager: EVMFeeStrategy;
   networkIdentifier: string;
-  onFeeSelect: (fee: FeeConfiguration) => void;
-  selectedFee?: FeeConfiguration | null;
+  onClose: () => void;
 }
 
 export default function FeeModal(props: FeeModalProps) {
-  const { onClose, networkIdentifier, onFeeSelect: onNetworkFeeSelect, selectedFee: selectedNetworkFee } = props;
+  const { onClose, feeManager, networkIdentifier } = props;
 
   const [expanded, setExpanded] = useState(false);
-  const [configuration, setConfiguration] = useState<FeeConfiguration | null>(selectedNetworkFee ?? null);
 
+  const network = useNetworkByIdentifier(networkIdentifier);
   const ticker = useNativeTokenMarketTicker(networkIdentifier);
 
-  const handleChangeFeePreference = (event: MouseEvent<HTMLElement>, newFeePreference: FeePreference | null) => {
-    if (newFeePreference !== null && configuration) {
-      setConfiguration(config => {
-        if (!config) throw new Error("Missing configuration");
+  const initialStateResetRef = useRef(false);
 
-        return getUpdatedFeeConfiguration(config, newFeePreference, ticker);
-      });
+  const [gasPrice, setGasPrice] = useState("");
+  const [gasLimit, setGasLimit] = useState("");
+  const [baseFee, setBaseFee] = useState("");
+  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState("");
+  const [transactionType, setTransactionType] = useState<TransactionType | null>(feeManager?.feeSettingsNormalized?.type ?? null);
+
+  const resetState = useCallback(() => {
+    if (!feeManager.feeSettingsNormalized) return;
+
+    const settings = feeManager.feeSettingsNormalized;
+
+    if (settings.type === TransactionType.EIP1559) {
+      setBaseFee(settings.baseFee);
+      setMaxPriorityFeePerGas(settings.maxPriorityFeePerGas);
+    } else if (settings.type === TransactionType.Legacy) {
+      setGasPrice(settings.gasPrice);
     }
+
+    setGasLimit(settings.gasLimit);
+
+    setTransactionType(settings.type);
+  }, [feeManager.feeSettingsNormalized]);
+
+  useEffect(() => {
+    if (!initialStateResetRef.current || feeManager.feePreference !== "custom") {
+      initialStateResetRef.current = true;
+      resetState();
+    }
+  }, [resetState, feeManager.feePreference]);
+
+  const handleChangeFeePreference = (event: MouseEvent<HTMLElement>, newFeePreference: EVMFeePreference) => {
+    if (!newFeePreference) return;
+
+    feeManager.changeFeePreference(newFeePreference);
+
+    resetState();
   };
 
   const handleExpandToggle = () => {
-    setExpanded(!expanded);
+    setExpanded(value => !value);
   };
 
-  const handleGasLimitChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfiguration(config => {
-      if (!config) throw new Error("Missing configuration");
+  const handleGasLimitChange = (value: string) => {
+    setGasLimit(value);
 
-      return getUpdatedFeeConfiguration(
-        {
-          ...config,
-          gasLimit: handleEventInput(event.target.value),
-        },
-        config.preference,
-        ticker,
-      );
-    });
+    feeManager.changeGasLimit(value);
   };
 
-  const handleMaxBaseFeeChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
+  const handleBaseFeeChange = (value: string) => {
+    setBaseFee(value);
 
-    setConfiguration(config => {
-      if (!config) throw new Error("Missing configuration");
-
-      const { feeNativeAsset, feeUSD } = getUpdatedFeeFields(
-        {
-          baseFee: config.baseFee,
-          gasLimit: config.gasLimit,
-          maxPriorityFeePerGas: config.maxPriorityFeePerGas,
-        },
-        ticker,
-      );
-
-      return {
-        ...config,
-        maxFeePerGas: parseUnits(value, "gwei").toString(),
-        feeNativeAsset,
-        feeUSD,
-      };
-    });
+    if (feeManager.currentFeeSettings?.type === TransactionType.EIP1559) {
+      feeManager.changeBaseFee(unformattedAmount(value).toString());
+    }
   };
 
-  const handlePriorityFeeChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
+  const handlePriorityFeeChange = (value: string) => {
+    setMaxPriorityFeePerGas(value);
 
-    setConfiguration(config => {
-      if (!config) throw new Error("Missing configuration");
-
-      try {
-        const { feeNativeAsset, feeUSD } = getUpdatedFeeFields(
-          {
-            baseFee: config.baseFee,
-            gasLimit: config.gasLimit,
-            maxPriorityFeePerGas: value,
-          },
-          ticker,
-        );
-
-        return {
-          ...config,
-          maxPriorityFeePerGas: value,
-          feeNativeAsset,
-          feeUSD,
-        };
-      } catch (error) {
-        return config;
-      }
-    });
+    feeManager.changeMaxPriorityFeePerGas(unformattedAmount(value).toString());
   };
 
-  const handleSave = () => {
-    if (!configuration) throw new Error("Missing configuration");
+  const handleGasPriceChange = (value: string) => {
+    setGasPrice(value);
 
-    onNetworkFeeSelect(configuration);
-    onClose();
+    feeManager.changeGasPrice(unformattedAmount(value).toString());
   };
 
-  const { color: timeColor, text: timeText } = getFeeEstimatedSecondsPresentation(configuration?.time ?? 0);
+  const price = formatValueFromAmountAndPrice(feeManager.feePriceInNativeCurrency ?? 0, parseFloat(ticker.priceUSD ?? "0"), "~$");
+
+  const { color: timeColor, text: timeText } = getFeeEstimatedSecondsPresentation(0);
 
   return (
     <DialogBase
@@ -161,16 +133,16 @@ export default function FeeModal(props: FeeModalProps) {
       onClose={onClose}
       title={
         <>
-          <Typography variant="headingSmall" align="center">
+          <Typography component="h1" variant="headingSmall" align="center">
             Edit Fee
           </Typography>{" "}
           <Stack mt={2.5} direction="row" alignItems="center" justifyContent="center">
             <FeeToggleButtonGroup
-              size="small"
-              value={configuration?.preference ?? defaultFeePreference}
               exclusive
-              onChange={handleChangeFeePreference}
+              size="small"
               aria-label="fee preference"
+              value={feeManager.feePreference}
+              onChange={handleChangeFeePreference}
             >
               {feePreferences.map(value => (
                 <FeeToggleButton key={value} value={value} disableRipple aria-label={`${value} fee`}>
@@ -183,16 +155,16 @@ export default function FeeModal(props: FeeModalProps) {
       }
       content={
         <>
-          <Typography variant="headingMedium" align="center">
-            ~${formatAmount(configuration?.feeUSD ?? 0)}
+          <Typography component="p" variant="headingMedium" align="center">
+            {price}
           </Typography>
           <Stack mt="13px" direction="row" alignItems="center" justifyContent="space-between">
             <Typography variant="medium" color="text.secondary">
-              Max fee:
+              Total fee:
             </Typography>
-            <Typography variant="medium" align="right">
-              {configuration ? `$${formatAmount(configuration.feeUSD)} (${formatAmount(configuration.feeNativeAsset)} ETH)` : "--"}
-            </Typography>
+            <Typography variant="medium" align="right">{` ${formatAmount(feeManager.feePriceInNativeCurrency ?? 0)} ${
+              network?.currencySymbol
+            }`}</Typography>
           </Stack>
           <Stack mt={1.5} direction="row" alignItems="center" justifyContent="space-between">
             <Typography variant="medium" color="text.secondary">
@@ -205,55 +177,71 @@ export default function FeeModal(props: FeeModalProps) {
           <ExpandButton
             variant="text"
             disableRipple
-            sx={{ mt: "34px", mx: "auto", mb: "4px" }}
+            sx={sxStyles.expandButton}
             endIcon={<IconExpandMore expand={expanded} aria-expanded={expanded} aria-label="Advanced" />}
             onClick={handleExpandToggle}
           >
             Advanced
           </ExpandButton>
           <Collapse in={expanded} timeout="auto" unmountOnExit>
-            <Box width={1} mt={1.5}>
-              <FormField
+            <Stack mt={1.5} spacing="21px">
+              <NumericField
+                decimals={0}
                 type="number"
                 name="gasLimit"
+                value={gasLimit}
                 label="Gas limit"
                 autoComplete="off"
                 sx={sxStyles.formField}
                 placeholder="Enter gas limit"
-                onChange={handleGasLimitChange}
-                value={configuration?.gasLimit ?? ""}
+                onNumericInputChange={handleGasLimitChange}
               />
-            </Box>
-            <Box width={1} mt="21px">
-              <FormField
-                type="number"
-                name="maxBaseFee"
-                autoComplete="off"
-                label="Max base fee"
-                sx={sxStyles.formField}
-                placeholder="Enter max base fee"
-                onChange={handleMaxBaseFeeChange}
-                value={configuration?.maxFeePerGas ?? ""}
-              />
-            </Box>
-            <Box width={1} mt="21px">
-              <FormField
-                type="number"
-                name="priorityFee"
-                autoComplete="off"
-                label="Priority fee"
-                sx={sxStyles.formField}
-                placeholder="Enter priority limit"
-                onChange={handlePriorityFeeChange}
-                value={configuration?.maxPriorityFeePerGas}
-              />
-            </Box>
-            <Typography variant="medium" mt={2.5} align="center">
+              {transactionType === TransactionType.Legacy && (
+                <NumericField
+                  decimals={9}
+                  type="number"
+                  name="gasPrice"
+                  value={gasPrice}
+                  autoComplete="off"
+                  sx={sxStyles.formField}
+                  label="Gas price (GWEI)"
+                  placeholder="Enter gas price"
+                  onNumericInputChange={handleGasPriceChange}
+                />
+              )}
+              {transactionType === TransactionType.EIP1559 && (
+                <>
+                  <NumericField
+                    decimals={9}
+                    type="number"
+                    name="baseFee"
+                    value={baseFee}
+                    autoComplete="off"
+                    label="Base fee (GWEI)"
+                    sx={sxStyles.formField}
+                    placeholder="Enter base fee"
+                    onNumericInputChange={handleBaseFeeChange}
+                  />
+                  <NumericField
+                    decimals={9}
+                    type="number"
+                    name="priorityFee"
+                    autoComplete="off"
+                    sx={sxStyles.formField}
+                    label="Priority fee (GWEI)"
+                    value={maxPriorityFeePerGas}
+                    placeholder="Enter priority limit"
+                    onNumericInputChange={handlePriorityFeeChange}
+                  />
+                </>
+              )}
+            </Stack>
+            <Typography component="p" variant="medium" mt={2.5} align="center">
               <Link
-                href="https://docs.getaurox.com/product-docs/aurox-wallet-guides/gas-settings"
                 target="_blank"
                 rel="noreferrer"
                 underline="hover"
+                href="https://docs.getaurox.com/product-docs/aurox-wallet-guides/gas-settings"
               >
                 Need help?
               </Link>
@@ -262,7 +250,7 @@ export default function FeeModal(props: FeeModalProps) {
         </>
       }
       actions={
-        <Button fullWidth variant="contained" onClick={handleSave}>
+        <Button fullWidth variant="contained" onClick={onClose}>
           Save
         </Button>
       }

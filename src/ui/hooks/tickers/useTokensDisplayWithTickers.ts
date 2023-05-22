@@ -5,7 +5,7 @@ import sortBy from "lodash/sortBy";
 import uniq from "lodash/uniq";
 
 import { getAssetDefinitionFromIdentifier, getNetworkDefinitionFromIdentifier } from "common/utils";
-import { useTickers } from "ui/common/connections";
+import { UseTickersOptions, useTickers } from "ui/common/connections";
 import {
   BINANCE_SMART_CHAIN_NATIVE_ASSET_PRICING_PAIR_ID,
   ethereumMainnetNetworkIdentifier,
@@ -26,7 +26,10 @@ import { TokenTickerData } from "./types";
  * @param tokens array of token balance info
  * @returns Corresponding array adhering to the original order of tokens received from the input with the extra info if available
  */
-export function useTokensDisplayWithTickers(tokens: FlatTokenBalanceInfo[]): TokenDisplayWithTicker[] {
+export function useTokensDisplayWithTickers(
+  tokens: FlatTokenBalanceInfo[],
+  { throttleMaxWait = 10000, skipThrottleOnMultipleUpdates }: UseTickersOptions = {},
+): TokenDisplayWithTicker[] {
   const [networkTokenContractAddresses, nativeTokenNetworkIdentifiers] = useMemo(() => {
     const networkTokenContractAddresses: Record<string, string[]> = {
       [ethereumMainnetNetworkIdentifier]: [],
@@ -70,7 +73,7 @@ export function useTokensDisplayWithTickers(tokens: FlatTokenBalanceInfo[]): Tok
 
   const nativeTokenPairIdDependencies = sortBy(uniq(compact(Object.values(nativeTickers).map(ticker => ticker.pairId))));
 
-  const nativeMarketTickers = useTickers(nativeTokenPairIdDependencies, { throttleMaxWait: 10000 });
+  const nativeMarketTickers = useTickers(nativeTokenPairIdDependencies, { throttleMaxWait, skipThrottleOnMultipleUpdates });
 
   return useMemo(() => {
     const result: TokenDisplayWithTicker[] = [];

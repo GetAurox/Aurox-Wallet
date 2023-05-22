@@ -9,7 +9,7 @@ import { applyTokenAssetVisibilityRules, getNetworkDefinitionFromIdentifier } fr
 
 import {
   useActiveAccountBalances,
-  useActiveAccountFlatNFTBalances,
+  useActiveAccountNetworkAddress,
   useFuse,
   useImportedAssets,
   useTokensDisplayWithTickers,
@@ -25,6 +25,8 @@ import Search from "ui/components/common/Search";
 import CheckboxField from "ui/components/form/CheckboxField";
 
 import ManageTokenFilterDialog, { VisibilityFilter } from "ui/pages/token/ManageTokens/ManageTokenFilterDialog";
+
+import { ImportedAssetNFT } from "common/types";
 
 import ManageNFTListItem from "./ManageNFTListItem";
 
@@ -116,8 +118,7 @@ export default function ManageNFTs() {
   const balances = useActiveAccountBalances();
   const importedAssets = useImportedAssets();
 
-  const flatBalances = useActiveAccountFlatNFTBalances();
-  const flatBalancesKeys = flatBalances.map(balance => balance.key);
+  const activeAccountNetworkAddress = useActiveAccountNetworkAddress();
 
   const targetAssets = useMemo(() => {
     const targetAssets: FlatTokenBalanceInfo[] = [];
@@ -125,7 +126,10 @@ export default function ManageNFTs() {
     for (const asset of importedAssets ?? []) {
       const balanceInfo = balances?.[asset.networkIdentifier]?.balances?.[asset.assetIdentifier];
 
-      if (asset.type === "nft" && flatBalancesKeys.includes(asset.key)) {
+      if (
+        asset.type === "nft" &&
+        (asset as ImportedAssetNFT).metadata.accountAddress.toLowerCase() === activeAccountNetworkAddress?.toLowerCase()
+      ) {
         targetAssets.push({
           ...asset,
           type: "nft",
@@ -148,7 +152,7 @@ export default function ManageNFTs() {
     }
 
     return verifyFiltered;
-  }, [balances, flatBalancesKeys, importedAssets, showVerified, visibilityFilter]);
+  }, [visibilityFilter, importedAssets, balances, activeAccountNetworkAddress, showVerified]);
 
   const tokens = useTokensDisplayWithTickers(targetAssets);
 

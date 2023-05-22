@@ -1,6 +1,6 @@
 import assert from "assert";
 
-import { isEqual } from "lodash";
+import isEqual from "lodash/isEqual";
 
 import { BlockNativeSimulator } from "serviceWorker/managers/EVMTransactionsManager/simulators";
 
@@ -13,5 +13,9 @@ describe("BlockNative simulator tests", () => {
     const result = BlockNativeSimulator.normalizeResponse(ACCOUNT_ADDRESS, blocknativeSimulatorMocks.erc20?.apiResponse);
 
     assert(isEqual(JSON.stringify(result), JSON.stringify(blocknativeSimulatorMocks.erc20?.simulatorResponse)));
+  });
+
+  it("Ensures simulation works when there are empty balance changes", () => {
+    BlockNativeSimulator.normalizeResponse(ACCOUNT_ADDRESS, blocknativeSimulatorMocks.unknown?.apiResponse);
   });
 });

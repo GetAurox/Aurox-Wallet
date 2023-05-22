@@ -1,15 +1,17 @@
-import { Alert, Box, Button, buttonClasses, IconButton, Stack, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Button, IconButton, Stack, Tooltip, Typography, buttonClasses } from "@mui/material";
 
 import { isNativeAsset } from "common/utils";
 
+import useAnalytics from "ui/common/analytics";
 import { useHistoryPush } from "ui/common/history";
-import { useTokenAssetTicker, useTokenMarketDetails } from "ui/hooks";
+
+import { useActiveAccount, useTokenAssetTicker, useTokenMarketDetails } from "ui/hooks";
 
 import { IconInfo } from "ui/components/icons";
 import TokenLinks from "ui/components/entity/token/TokenLinks";
 import TokenSocials from "ui/components/entity/token/TokenSocials";
-import CustomControls from "ui/components/controls/CustomControls";
 import TokenPriceChart from "ui/components/charting/TokenPriceChart";
+import CustomControls from "ui/components/controls/CustomControls";
 
 import TokenStats from "./sections/TokenStats";
 import TokenAbout from "./sections/TokenAbout";
@@ -26,6 +28,9 @@ const sxStyles = {
   },
   fixedPanel: {
     mt: 3.5,
+  },
+  button: {
+    flex: 1,
   },
   infoIconButton: {
     p: 0,
@@ -53,17 +58,25 @@ export default function TokenNetworkSpecificAsset(props: TokenNetworkSpecificAss
   const { assetKey } = props;
 
   const push = useHistoryPush();
+  const { trackButtonClicked } = useAnalytics();
+
   const token = useTokenAssetTicker(assetKey);
   const { tokenDetails } = useTokenMarketDetails(assetKey);
+  const activeAccount = useActiveAccount();
+
+  const isHardwareWallet = activeAccount?.type === "hardware";
 
   const verified = token.verified || isNativeAsset(token.assetIdentifier);
 
   const handleSwap = () => {
-    // push("/swap", { fromAssetKey: token.key });
-    push("/", { section: "swap" });
+    trackButtonClicked("Coin Swap");
+
+    push("/swap", { fromAssetKey: token.key });
   };
 
   const handleSend = () => {
+    trackButtonClicked("Coin Send");
+
     push("/send", { assetKey: token.key });
   };
 
@@ -108,37 +121,43 @@ export default function TokenNetworkSpecificAsset(props: TokenNetworkSpecificAss
       <CustomControls
         spacerSx={sxStyles.fixedPanel}
         primary={
-          <Tooltip
-            PopperProps={{ disablePortal: true }}
-            componentsProps={{ tooltip: { sx: sxStyles.tooltip } }}
-            title={
-              <Typography variant="medium" textAlign="center">
-                Gasless swapping is being finished & will be available soon.
-              </Typography>
-            }
-          >
-            <Box height="fitContent" flex={1} component="span">
-              <Button
-                sx={sxStyles.primaryButton}
-                endIcon={
-                  <IconButton sx={sxStyles.infoIconButton} color="primary">
-                    <IconInfo />
-                  </IconButton>
-                }
-                variant="contained"
-                fullWidth
-                onClick={handleSwap}
-                disabled
-              >
-                Swap
-              </Button>
-            </Box>
-          </Tooltip>
-        }
-        secondary={
-          <Button variant="outlined" sx={sxStyles.secondaryButton} onClick={handleSend}>
+          <Button variant="contained" sx={sxStyles.button} onClick={handleSend}>
             Send
           </Button>
+        }
+        secondary={
+          isHardwareWallet ? (
+            <Tooltip
+              PopperProps={{ disablePortal: true }}
+              componentsProps={{ tooltip: { sx: sxStyles.tooltip } }}
+              title={
+                <Typography variant="medium" textAlign="center">
+                  Swapping with Hardware Wallets will be supported soon
+                </Typography>
+              }
+            >
+              <Box height="fitContent" flex={1} component="span">
+                <Button
+                  sx={sxStyles.primaryButton}
+                  endIcon={
+                    <IconButton sx={sxStyles.infoIconButton} color="primary">
+                      <IconInfo />
+                    </IconButton>
+                  }
+                  variant="contained"
+                  fullWidth
+                  onClick={handleSwap}
+                  disabled
+                >
+                  Swap
+                </Button>
+              </Box>
+            </Tooltip>
+          ) : (
+            <Button variant="outlined" sx={sxStyles.button} onClick={handleSwap}>
+              Swap
+            </Button>
+          )
         }
       />
     </>

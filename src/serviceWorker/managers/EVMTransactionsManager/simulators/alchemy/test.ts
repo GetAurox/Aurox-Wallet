@@ -1,6 +1,6 @@
 import assert from "assert";
 
-import { isEqual } from "lodash";
+import isEqual from "lodash/isEqual";
 
 import { AlchemySimulator } from "serviceWorker/managers/EVMTransactionsManager/simulators";
 

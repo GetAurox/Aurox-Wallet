@@ -1,8 +1,9 @@
 import { ChangeEvent, useEffect, useState } from "react";
-import { BigNumber } from "ethers";
 import produce from "immer";
 
-import { Link, Stack } from "@mui/material";
+import { InputAdornment, Link, Stack } from "@mui/material";
+
+import { BigNumber } from "ethers";
 
 import { defaultUserPreferences } from "common/storage";
 import { EVMProvider, ProviderManager } from "common/wallet";
@@ -22,10 +23,10 @@ export default function GasPresetsForm() {
 
   const preset = userPreferences?.general?.gasPresets?.[networkIdentifier]?.[level as keyof Omit<GasPresetSettings, "enabled">];
 
-  const [baseFee, setBaseFee] = useState<number | "">(preset?.baseFee ?? "");
-  const [gasLimit, setGasLimit] = useState<number | "">(preset?.gasLimit ?? "");
-  const [gasPrice, setGasPrice] = useState<number | "">(preset?.gasPrice ?? "");
-  const [priorityFee, setPriorityFee] = useState<number | "">(preset?.priorityFee ?? "");
+  const [baseFee, setBaseFee] = useState<string>(preset?.baseFee ?? "");
+  const [gasLimit, setGasLimit] = useState<string>(preset?.gasLimit ?? "");
+  const [gasPrice, setGasPrice] = useState<string>(preset?.gasPrice ?? "");
+  const [priorityFee, setPriorityFee] = useState<string>(preset?.priorityFee ?? "");
   const [networkFormat, setNetworkFormat] = useState<"EIP1559" | "Legacy" | null>(null);
 
   const network = useNetworkByIdentifier(networkIdentifier);
@@ -40,10 +41,10 @@ export default function GasPresetsForm() {
         }
 
         draft.general.gasPresets![networkIdentifier][level as keyof Omit<GasPresetSettings, "enabled">] = {
-          priorityFee: priorityFee !== "" ? Number(priorityFee) : undefined,
-          baseFee: baseFee !== "" ? Number(baseFee) : undefined,
-          gasLimit: gasLimit !== "" ? Number(gasLimit) : undefined,
-          gasPrice: gasPrice !== "" ? Number(gasPrice) : undefined,
+          priorityFee: priorityFee !== "" ? priorityFee : undefined,
+          baseFee: baseFee !== "" ? baseFee : undefined,
+          gasLimit: gasLimit !== "" ? gasLimit : undefined,
+          gasPrice: gasPrice !== "" ? gasPrice : undefined,
         };
       }),
     );
@@ -52,27 +53,43 @@ export default function GasPresetsForm() {
   };
 
   const handleChangePriorityFee = (event: ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    const value = event.target.value;
+    const newValue = event.target.value;
 
-    setPriorityFee(value ? Number(value) : "");
+    const parsedValue = parseFloat(newValue);
+
+    if ((!isNaN(parsedValue) && parsedValue >= 0) || newValue === "") {
+      setPriorityFee(parsedValue.toString());
+    }
   };
 
   const handleChangeBaseFee = (event: ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    const value = event.target.value;
+    const newValue = event.target.value;
 
-    setBaseFee(value ? Number(value) : "");
+    const parsedValue = parseFloat(newValue);
+
+    if ((!isNaN(parsedValue) && parsedValue >= 1) || newValue === "") {
+      setBaseFee(parsedValue.toString());
+    }
   };
 
   const handleChangeGasLimit = (event: ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    const value = event.target.value;
+    const newValue = event.target.value;
 
-    setGasLimit(value ? Number(value) : "");
+    const parsedValue = parseFloat(newValue);
+
+    if ((!isNaN(parsedValue) && parsedValue >= 1) || newValue === "") {
+      setGasLimit(parsedValue.toString());
+    }
   };
 
   const handleChangeGasPrice = (event: ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    const value = event.target.value;
+    const newValue = event.target.value;
 
-    setGasPrice(value ? Number(value) : "");
+    const parsedValue = parseFloat(newValue);
+
+    if ((!isNaN(parsedValue) && parsedValue >= 0) || newValue === "") {
+      setGasPrice(parsedValue.toString());
+    }
   };
 
   const handleClearPriorityFee = () => {
@@ -138,9 +155,23 @@ export default function GasPresetsForm() {
       <Header title={`${networkName} Gas Presets`} onBackClick={handleBack} />
 
       <Stack rowGap={1.5} mx={2}>
-        <TextField onChange={handleChangeGasLimit} value={gasLimit} type="number" label="Gas limit" onClear={handleClearGasLimit} />
+        <TextField
+          onChange={handleChangeGasLimit}
+          value={gasLimit}
+          type="number"
+          label="Gas limit"
+          onClear={handleClearGasLimit}
+          endAdornment={<InputAdornment position="end">%</InputAdornment>}
+        />
         {networkFormat === "EIP1559" && (
-          <TextField onChange={handleChangeBaseFee} type="number" value={baseFee} label="Base fee (GWEI)" onClear={handleClearBaseFee} />
+          <TextField
+            onChange={handleChangeBaseFee}
+            type="number"
+            value={baseFee}
+            label="Base fee"
+            onClear={handleClearBaseFee}
+            endAdornment={<InputAdornment position="end">%</InputAdornment>}
+          />
         )}
 
         {networkFormat === "Legacy" && (

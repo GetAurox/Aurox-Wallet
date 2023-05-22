@@ -2,8 +2,6 @@ import "common/bootstrap";
 
 import "./inject";
 
-import { setupSW5MinuteDeathmarkWorkaroundForContentScript } from "common/chrome/workarounds/sw5MinuteDeathmark/contentScript";
-
 import { setMessageSender, DOMActions } from "common/dom";
 
 import { DApp } from "common/operations";
@@ -33,8 +31,6 @@ export async function configureRPCProxy() {
   });
 
   ready = true;
-
-  setupSW5MinuteDeathmarkWorkaroundForContentScript();
 }
 
 configureRPCProxy();

@@ -1,7 +1,5 @@
 import uniq from "lodash/uniq";
 
-import { assertServiceWorkerIsAlive } from "common/chrome/workarounds/sw5MinuteDeathmark/messaging";
-
 import { BroadcastEvent, BroadcastMessagePayload, SenderACL, BroadcastTarget } from "./types";
 import { getSenderAccessInfo, messageIsBroadcast } from "./utils";
 
@@ -9,8 +7,6 @@ export async function broadcast<T>(topic: string, target: BroadcastTarget, data:
   const tasks = [];
 
   if (target.internals === "all") {
-    await assertServiceWorkerIsAlive();
-
     tasks.push(chrome.runtime.sendMessage<BroadcastMessagePayload<T>>({ type: "broadcast", topic, data }));
   }
 

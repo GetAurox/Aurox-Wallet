@@ -1,16 +1,10 @@
+import { getIsServiceWorkerContext } from "common/sw";
+
 import { POPUP_URL, EXPANDED_URL, HARDWARE_URL, CONNECT_URL, ONBOARDING_URL } from "./constants";
 import { ExtensionEntity } from "./types";
 
-const sw = globalThis as any as ServiceWorkerGlobalScope;
-
-const isInServiceWorker = typeof sw.skipWaiting === "function";
-
-export function getIsInServiceWorker() {
-  return isInServiceWorker;
-}
-
 export function getCurrentEntity(): ExtensionEntity {
-  if (isInServiceWorker) {
+  if (getIsServiceWorkerContext()) {
     return "service-worker";
   }
 

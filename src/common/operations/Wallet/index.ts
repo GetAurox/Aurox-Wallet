@@ -15,3 +15,4 @@ export * as Phishing from "./Phishing";
 export * as GetDerivedAddresses from "./GetDerivedAddresses";
 export * as SignMessageV2 from "./SignMessageV2";
 export * as SignTypedDataV2 from "./SignTypedDataV2";
+export * as SignTransactionV2 from "./SignTransactionV2";

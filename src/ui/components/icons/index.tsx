@@ -34,6 +34,7 @@ const LazyIconDiscordLevelTwo = lazy(() => import( /* webpackChunkName: "icons" 
 const LazyIconDiscord = lazy(() => import( /* webpackChunkName: "icons" */ "./discord.svg"));
 const LazyIconEdit = lazy(() => import( /* webpackChunkName: "icons" */ "./edit.svg"));
 const LazyIconEthereum = lazy(() => import( /* webpackChunkName: "icons" */ "./ethereum.svg"));
+const LazyIconFail = lazy(() => import( /* webpackChunkName: "icons" */ "./fail.svg"));
 const LazyIconFantom = lazy(() => import( /* webpackChunkName: "icons" */ "./fantom.svg"));
 const LazyIconFilterAlt = lazy(() => import( /* webpackChunkName: "icons" */ "./filter-alt.svg"));
 const LazyIconFullScreen = lazy(() => import( /* webpackChunkName: "icons" */ "./full-screen.svg"));
@@ -141,6 +142,7 @@ export const IconDiscordLevelTwoGray = (props: IconProps) => <Suspense fallback=
 export const IconDiscordLevelTwo = (props: IconProps) => <Suspense fallback={null}><LazyIconDiscordLevelTwo {...props} /></Suspense>
 export const IconDiscord = (props: IconProps) => <Suspense fallback={null}><LazyIconDiscord {...props} /></Suspense>
 export const IconEthereum = (props: IconProps) => <Suspense fallback={null}><LazyIconEthereum {...props} /></Suspense>
+export const IconFail = (props: IconProps) => <Suspense fallback={null}><LazyIconFail {...props} /></Suspense>
 export const IconFantom = (props: IconProps) => <Suspense fallback={null}><LazyIconFantom {...props} /></Suspense>
 export const IconFilterAlt = (props: IconProps) => <Suspense fallback={null}><LazyIconFilterAlt {...props} /></Suspense>
 export const IconFullScreen = (props: IconProps) => <Suspense fallback={null}><LazyIconFullScreen {...props} /></Suspense>

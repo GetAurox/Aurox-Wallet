@@ -1,11 +1,11 @@
 import { useState, ChangeEvent, ReactNode } from "react";
 
 import { Box, Button, Typography, IconButton } from "@mui/material";
-
 import { Close as CloseIcon } from "@mui/icons-material";
 
-import Search from "ui/components/common/Search";
+import useAnalytics from "ui/common/analytics";
 
+import Search from "ui/components/common/Search";
 import { IconSearch } from "ui/components/icons";
 
 const sxStyles = {
@@ -37,8 +37,12 @@ export default function HomeListSubheader(props: HomeListSubheaderProps) {
 
   const [isSearchActive, setIsSearchActive] = useState<boolean>(false);
 
+  const { trackButtonClicked } = useAnalytics();
+
   const handleSearchIconClick = () => {
     setIsSearchActive(true);
+
+    trackButtonClicked("My Balances Search");
   };
 
   const handleSearchClose = () => {

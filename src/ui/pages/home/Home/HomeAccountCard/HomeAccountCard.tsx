@@ -6,6 +6,8 @@ import { Visibility as VisibilityIcon, VisibilityOff as VisibilityOffIcon } from
 import { AccountInfo } from "common/types";
 
 import { collapseIdentifier, formatBalance, formatPrice, mixSx, TEN_MILLIONS } from "ui/common/utils";
+import useAnalytics from "ui/common/analytics";
+
 import { useLocalUserPreferences, useGasPrice, useNSResolveDomainFromAddress } from "ui/hooks";
 
 import { IconGasStation } from "ui/components/icons";
@@ -52,6 +54,8 @@ export default function HomeAccountCard(props: HomeAccountCardProps) {
   const [openBalanceTooltip, setOpenBalanceTooltip] = useState(false);
   const [isBlockchainExplorerDialogOpen, setIsBlockchainExplorerDialogOpen] = useState(false);
 
+  const { trackButtonClicked } = useAnalytics();
+
   const [userPreferences, setUserPreferences] = useLocalUserPreferences();
   const { gasPrice } = useGasPrice();
 
@@ -59,6 +63,8 @@ export default function HomeAccountCard(props: HomeAccountCardProps) {
 
   const handleToggleShowBalance = () => {
     setUserPreferences(preferences => ({ ...preferences, balanceVisible: !preferences.balanceVisible }));
+
+    trackButtonClicked("Hide Wallet Balances");
   };
 
   const handleMouseDownShowBalance = (event: MouseEvent<HTMLButtonElement>) => {
@@ -66,6 +72,8 @@ export default function HomeAccountCard(props: HomeAccountCardProps) {
   };
 
   const handleBlockchainExplorerDialogOpen = () => {
+    trackButtonClicked("View Address Explorer URL");
+
     setIsBlockchainExplorerDialogOpen(true);
   };
 

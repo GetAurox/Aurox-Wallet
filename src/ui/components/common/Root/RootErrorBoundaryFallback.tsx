@@ -6,6 +6,7 @@ import { MainPageSection, useGoHome, useHistoryGoBackOrReset } from "ui/common/h
 
 import AlertStatus from "ui/components/common/AlertStatus";
 import MainPageBottomNavigation from "ui/frames/popup/components/MainPage/MainPageBottomNavigation";
+import CopyableText from "ui/components/clipboard/CopyableText";
 
 interface RootErrorBoundaryFallbackProps {
   errorMessage: string;
@@ -43,7 +44,8 @@ export default memo(function RootErrorBoundaryFallback(props: RootErrorBoundaryF
               {errorName}
               <br />
               <br />
-              Please contact <a href="mailto:support@getaurox.com">support@getaurox.com</a> if this error persists.
+              Please contact <CopyableText text="support@getaurox.com" disableCollapseIdentifier variant="large" ml={0} /> if this error
+              persists.
             </>
           }
           onButtonClick={handleOnHideError}

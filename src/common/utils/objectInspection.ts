@@ -1,4 +1,6 @@
-import { isObject, isString, values } from "lodash";
+import isObject from "lodash/isObject";
+import isString from "lodash/isString";
+import values from "lodash/values";
 
 export function* getStringValuesFromObject(target: any): Generator<string> {
   for (const value of values(target)) {

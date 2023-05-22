@@ -29,11 +29,12 @@ export interface TransactionTokenSectionStatusProps {
   networkIdentifier: string;
   transactionHash: string;
   date: string;
+  showActions: boolean;
   status?: TransactionStatus;
 }
 
 export default function TransactionTokenSectionStatus(props: TransactionTokenSectionStatusProps) {
-  const { date, status, accountUUID, networkIdentifier, transactionHash } = props;
+  const { date, status, accountUUID, networkIdentifier, transactionHash, showActions } = props;
 
   return (
     <>
@@ -61,7 +62,7 @@ export default function TransactionTokenSectionStatus(props: TransactionTokenSec
             </Tooltip>
           )}
         </Box>
-        {status === "pending" && (
+        {status === "pending" && showActions && (
           <TokenTransactionActions
             sx={sxStyles.tokenActions}
             justifyContent="right"

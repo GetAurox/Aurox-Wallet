@@ -1,31 +1,31 @@
-import { useState, useEffect, useMemo } from "react";
-
 import noop from "lodash/noop";
 
-import { EVMSignerPopup, PopupSignerManager } from "ui/common/connections";
+import { useState, useEffect, useMemo } from "react";
+
 import { AccountInfo, RawTransaction } from "common/types";
+import { EVMTransactionService, getEVMTransactionService } from "common/transactions";
 
-import { EVMTransactionManager } from "ui/common/transactions/transactionManagerV2";
+import { useActiveAccountBalanceOfNativeAsset, useNetworkGetter } from "../states";
 
-import { GasPresetSettings } from "ui/types";
-
-import { useNetworkGetter } from "../states";
 import { useLocalUserPreferences } from "../storage";
 
 export function useTransactionManager(
   account: AccountInfo | null | undefined,
-  networkIdentifier: string | null,
-  transaction: RawTransaction | null,
+  networkIdentifier: string | null | undefined,
+  transaction: RawTransaction | null | undefined,
   nonce?: number,
 ) {
-  const [manager, setManager] = useState<EVMTransactionManager | null>(null);
+  const [service, setService] = useState<EVMTransactionService>();
+
   const [userPreferences] = useLocalUserPreferences();
+
+  const nativeBalance = useActiveAccountBalanceOfNativeAsset(networkIdentifier);
 
   const { general } = userPreferences;
 
   const gasPresets = useMemo(() => {
     if (!general || !general.gasPresets || !networkIdentifier) {
-      return {} as GasPresetSettings;
+      return;
     }
 
     return general.gasPresets[networkIdentifier];
@@ -35,25 +35,35 @@ export function useTransactionManager(
 
   useEffect(() => {
     let cleanup = noop;
+    let mounted = true;
 
     const resolve = async () => {
-      if (!account || !transaction) return;
+      if (!account || !transaction || !nativeBalance) return;
 
       try {
         const network = networkGetter(networkIdentifier);
 
         if (!network) return;
 
-        const signer = PopupSignerManager.getSigner(account, network) as EVMSignerPopup;
-        const manager = await new EVMTransactionManager(transaction, signer).withFees(gasPresets);
+        const service = await getEVMTransactionService({
+          transaction,
+          account,
+          network,
+          userBalance: nativeBalance.balance,
+          gasOptions: { presets: gasPresets },
+        });
 
-        setManager(manager);
+        if (mounted && service) {
+          setService(service);
+        }
 
-        cleanup = () => manager.cancelFeeUpdate();
+        cleanup = () => service.cancelUpdate?.();
       } catch (error) {
         console.error(error);
 
-        setManager(null);
+        if (mounted) {
+          setService(undefined);
+        }
       }
     };
 
@@ -61,8 +71,10 @@ export function useTransactionManager(
 
     return () => {
       if (cleanup) cleanup();
-    };
-  }, [account, transaction, networkGetter, networkIdentifier, nonce, gasPresets]);
 
-  return manager;
+      mounted = false;
+    };
+  }, [account, transaction, networkGetter, networkIdentifier, nonce, gasPresets, nativeBalance]);
+
+  return service;
 }

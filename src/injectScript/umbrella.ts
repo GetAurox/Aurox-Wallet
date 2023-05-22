@@ -147,7 +147,7 @@ function aurox_inject_umbrella() {
     }
 
     isConnected = () => {
-      return true;
+      return !!this._targetProvider?.chainId;
     };
 
     _metamask = constructMetamaskExperimentalAPIProxy();
@@ -463,6 +463,8 @@ function aurox_inject_umbrella() {
     "isMetaMask",
     "isAurox",
     "providerName",
+    "chainId",
+    "isConnected",
     "send",
     "sendAsync",
     "request",

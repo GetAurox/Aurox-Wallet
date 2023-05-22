@@ -86,6 +86,7 @@ export default function NFTToken() {
         "nft",
         {
           name,
+          verified: !!String(name).trim(),
           metadata: {
             tokenId,
             image,

@@ -1,9 +1,12 @@
-import { useState, useEffect, ChangeEvent, useCallback } from "react";
+import { useState, useEffect, ChangeEvent, useCallback, memo } from "react";
 import Decimal from "decimal.js";
+import { BigNumber } from "ethers";
+import { formatEther } from "ethers/lib/utils";
 
 import { Stack, Box, Typography } from "@mui/material";
 
 import { formatAmount } from "ui/common/utils";
+import { USD_DECIMALS } from "ui/common/constants";
 
 import { IconSwitchValues } from "ui/components/icons";
 
@@ -14,7 +17,6 @@ import TokenAmountSelectorSurface from "./TokenAmountSelectorSurface";
 import TokenAmountSelectorInput from "./TokenAmountSelectorInput";
 
 const discretePercentages = [25, 50, 75, 100];
-const USD_DECIMALS = 2;
 const MIN_AMOUNT_IN_USD = Math.pow(10, -USD_DECIMALS);
 
 export interface TokenAmountSelectorProps {
@@ -23,14 +25,14 @@ export interface TokenAmountSelectorProps {
   amount: string;
   balance: string;
   price: string;
-  feePrice: number;
+  feePrice?: string | null;
   onChange: (value: string) => void;
   error?: boolean;
   errorText?: string;
   selectedTokenType: "native" | "contract" | "nft";
 }
 
-export default function TokenAmountSelector(props: TokenAmountSelectorProps) {
+export default memo(function TokenAmountSelector(props: TokenAmountSelectorProps) {
   const { currency, decimals, amount, balance, price, onChange, error, errorText, feePrice, selectedTokenType } = props;
 
   const normalizedAmount = !amount.trim() ? "0" : amount;
@@ -166,15 +168,18 @@ export default function TokenAmountSelector(props: TokenAmountSelectorProps) {
 
   useEffect(() => {
     const shouldDeductFee =
-      selectedTokenType === "native" && (typeof percentage === "number" ? percentage === 100 : percentage.custom === 100);
+      feePrice && selectedTokenType === "native" && (typeof percentage === "number" ? percentage === 100 : percentage.custom === 100);
 
-    if (!isNaN(feePrice) && shouldDeductFee && feePrice > 0 && Number(price) > 0) {
+    if (shouldDeductFee && BigNumber.from(feePrice).gt(0)) {
       const balanceDecimal = new Decimal(balance);
-      const priceDecimal = new Decimal(price);
-      const feePriceDecimal = new Decimal(feePrice);
+      const priceDecimal = new Decimal(price ?? "0");
       const displayValueInUSD = switchValues && priceDecimal.greaterThan(0);
 
-      const newAmountDecimal = balanceDecimal.minus(feePriceDecimal.div(priceDecimal).toDP(decimals));
+      const feePriceInEther = formatEther(feePrice);
+
+      const feeAmount = new Decimal(feePriceInEther);
+
+      const newAmountDecimal = balanceDecimal.minus(feeAmount);
 
       let newValueDecimal = newAmountDecimal;
 
@@ -188,7 +193,7 @@ export default function TokenAmountSelector(props: TokenAmountSelectorProps) {
 
       onChange(newAmountDecimal.toDP(decimals).toFixed());
     }
-  }, [amount, balance, decimals, feePrice, onChange, percentage, price, selectedTokenType, switchValues]);
+  }, [balance, decimals, feePrice, onChange, percentage, price, selectedTokenType, switchValues]);
 
   useEffect(() => {
     if (error) {
@@ -288,4 +293,4 @@ export default function TokenAmountSelector(props: TokenAmountSelectorProps) {
       )}
     </>
   );
-}
+});
