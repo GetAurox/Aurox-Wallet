@@ -41,7 +41,7 @@ Once you have built the extension, it will output the extension files in the `./
 3. Select the `./dist/` folder when prompted to select folder.
 
 ## Editing .env file
-The .env file contains API keys for variety of endpoints that are required to make the Aurox Wallet fully operation. 
+The .env file contains API keys for variety of endpoints that are required to make the Aurox Wallet fully operational. 
 
 You can acquire free or free trial version of API keys from the following services by visiting their respective websites:
 
@@ -50,7 +50,7 @@ You can acquire free or free trial version of API keys from the following servic
 * RPC Providers, such as [Alchemy](https://alchemy.com) and [Infura](https://www.infura.io/), are utilized when interacting with the blockchain. For example, estimating gas or submitting transactions.
 
 
-The only API key that is not available publicly is the `GRAPHQL_LEECHER_X_API_KEY`. This API key is for the Aurox Backend API. Our backend serves as a layer above the blockchain to provide data and analytics to the wallet. This includes portfolio charts, token USD prices, auto token importing and a variety of other functions that improves the user experience of the Aurox Wallet.
+The only API key that is not available publicly is the `GRAPHQL_LEECHER_X_API_KEY`. This API key is for the Aurox Backend API. Our backend serves as a layer above the blockchain to provide data and analytics to the wallet. This includes portfolio charts, token USD prices, auto token importing and a variety of other functions that improve the user experience of the Aurox Wallet.
 
 Our company will provide our backend API key on a per-request basis. If you would like a personal API key, please contact support@getaurox.com.
 
@@ -73,7 +73,7 @@ There are two ways you can contribute to the codebase:
  
 If you are looking to implement larger functionalities or fulfill feature requests made by other users, Aurox will soon open up bounties for certain features on Gitcoin.
 
-Please read the following two files before writing any code or creating a pull requests.
+Please read the following two files before writing any code or creating a pull request.
 
  - [Code Style Guidelines](https://github.com/GetAurox/Aurox-Wallet/blob/master/Code%20Style%20Guidelines.pdf)
  - [Architecture](https://github.com/GetAurox/Aurox-Wallet/blob/master/Architecture%20(WIP).pdf)
