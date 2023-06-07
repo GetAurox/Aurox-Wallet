@@ -1,16 +1,19 @@
 import { ethers } from "ethers";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Decimal from "decimal.js";
 
 import { getAccountAddressForChainType, getUNSDomainRecordTypeFromTokenDisplay } from "common/utils";
+import { RawTransaction } from "common/types";
 import { Wallet } from "common/operations";
 
-import { useHistoryGoBack, useHistoryReset, useHistoryState } from "ui/common/history";
+import useAnalytics from "ui/common/analytics";
+import { getEVMTokenTransfer } from "ui/common/tokens";
 import { isEthereumAddress } from "ui/common/validators";
+import { useRewardSystemContext } from "ui/common/rewardSystem";
+import { useHistoryGoBack, useHistoryReset, useHistoryState } from "ui/common/history";
 import {
   useActiveAccount,
   useNetworkByIdentifier,
-  useTokenAssetTicker,
   useAssertBalancesSynchronizedForAssets,
   useIsSufficientFundsForTransaction,
   useTokenAssetDisplay,
@@ -19,46 +22,40 @@ import {
   useNSResolveDomainFromAddress,
   useNetworkBlockchainExplorerLinkResolver,
 } from "ui/hooks";
+import { useTransactionManager } from "ui/hooks/rpc";
 
 import Success from "ui/components/layout/misc/Success";
 import Header from "ui/components/layout/misc/Header";
 
-import { useRewardSystemContext } from "ui/common/rewardSystem";
-
-import { useTransactionManager } from "ui/hooks/rpc";
-
-import { RawTransaction } from "common/types";
-
-import { getEVMTokenTransfer } from "ui/common/tokens";
-
-import { submittingTransaction } from "./mock";
-
 import StageSetup from "./StageSetup";
 import StagePreview from "./StagePreview";
 import StageWarning from "./StageWarning";
+import { useSendTokenAssetTicker } from "./useSendTokenAssetTicker";
 
 export function Send() {
-  const reset = useHistoryReset();
-  const goBack = useHistoryGoBack();
-
-  const [assetKey, setAssetKey] = useHistoryState<string | null>("assetKey", null);
+  const [stage, setStage] = useState<"setup" | "preview" | "warning" | "completed">("setup");
 
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   // const [memo, setMemo] = useState("");
-
-  const [contractAsRecipientAccepted, setContractAsRecipientAccepted] = useState(false);
-
   const [transaction, setTransaction] = useState<RawTransaction | null>(null);
-
   const [txHash, setTxHash] = useState<string | null>();
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const [disableButton, setDisableButton] = useState(false);
+  const [contractAsRecipientAccepted, setContractAsRecipientAccepted] = useState(false);
+
+  const reset = useHistoryReset();
+  const goBack = useHistoryGoBack();
+
+  const { trackButtonClicked } = useAnalytics();
+
+  const [assetKey, setAssetKey] = useHistoryState<string | null>("assetKey", null);
 
   const activeAccount = useActiveAccount();
 
-  const selectedToken = useTokenAssetTicker(assetKey);
+  const selectedToken = useSendTokenAssetTicker(assetKey);
+
   const selectedTokenNetwork = useNetworkByIdentifier(selectedToken?.networkIdentifier);
 
   const transactionManager = useTransactionManager(activeAccount, selectedToken?.networkIdentifier ?? null, transaction);
@@ -67,8 +64,6 @@ export function Send() {
 
   const { getTransactionExplorerLink } = useNetworkBlockchainExplorerLinkResolver(selectedToken?.networkIdentifier);
 
-  const [stage, setStage] = useState<"setup" | "preview" | "warning" | "completed">("setup");
-
   const { publish } = useRewardSystemContext();
 
   const normalizedAmount = !amount.trim() ? "0" : amount;
@@ -76,7 +71,7 @@ export function Send() {
   const isSufficientFundsForTransaction = useIsSufficientFundsForTransaction({
     token: useTokenAssetDisplay(assetKey),
     amount: normalizedAmount,
-    feeSettings: transactionManager?.feeManager?.feeSettingsForEthereum ?? null,
+    feeSettings: transactionManager?.feeStrategy?.feeSettingsForEthereum ?? null,
   });
 
   const normalizedBalance = !selectedToken?.balance ? "0" : selectedToken.balance;
@@ -88,20 +83,21 @@ export function Send() {
   };
 
   const handleShowStageSetup = () => {
+    setError(null);
+
     setStage("setup");
   };
 
   // Formats the transaction correctly
-  const handleShowStagePreview = async () => {
-    if (!selectedToken || !selectedTokenNetwork || !activeAccount) throw new Error("Missing required fields");
+  const handleShowStagePreview = useCallback(async () => {
     setError(null);
 
     setStage("preview");
-  };
+  }, []);
 
-  const handleShowStageWarning = () => {
+  const handleShowStageWarning = useCallback(() => {
     setStage("warning");
-  };
+  }, []);
 
   // Sends off the transaction
   const handleShowStageCompleted = async () => {
@@ -116,29 +112,33 @@ export function Send() {
     setDisableButton(true);
 
     try {
-      const transactionHash = await transactionManager.sendTransaction(undefined, {
+      const { hash } = await transactionManager.sendTransaction({
         message: `Send ${selectedToken?.name}`,
         blockExplorerTxBaseURL: getTransactionExplorerLink(""),
       });
 
-      setTxHash(transactionHash);
+      setTxHash(hash);
 
       if (activeAccount.type === "hardware") {
         setStage("completed");
+
+        return;
       }
 
-      const signature = await Wallet.SignMessage.perform({
+      const signature = await Wallet.SignMessageV2.perform({
         chainType: "evm",
-        message: transactionHash,
+        message: hash,
         uuid: activeAccount.uuid,
         shouldArrayify: true,
       });
 
       publish("aurox.my.token_transaction", [], {
-        hash: transactionHash,
+        hash,
         signature,
         ...(selectedTokenNetwork && { chain_id: selectedTokenNetwork.chainId }),
       });
+
+      trackButtonClicked("Sent Token");
 
       setStage("completed");
     } catch (error) {
@@ -158,9 +158,9 @@ export function Send() {
     return reset(`/transactions/${txHash}/details`);
   };
 
-  const handleRecipientChange = (newRecipient: string) => {
+  const handleRecipientChange = useCallback((newRecipient: string) => {
     setRecipient(newRecipient);
-  };
+  }, []);
 
   const debouncedRecipient = useDebounce(recipient, 300);
 
@@ -175,7 +175,14 @@ export function Send() {
   useEffect(() => {
     const amountDecimal = new Decimal(normalizedAmount);
 
-    if (!isEthereumAddress(recipientAddress) || amountDecimal.eq(0) || !selectedToken || !activeAccount || !selectedTokenNetwork) {
+    if (
+      !isEthereumAddress(recipientAddress) ||
+      amountDecimal.eq(0) ||
+      !selectedToken?.decimals ||
+      !selectedToken?.assetDefinition ||
+      !activeAccount ||
+      !selectedTokenNetwork?.chainType
+    ) {
       return;
     }
 
@@ -188,31 +195,18 @@ export function Send() {
     setTransaction(transaction);
 
     return () => {
-      transactionManager?.cancelFeeUpdate();
+      transactionManager?.cancelUpdate?.();
     };
     // Need this to fire only on amount and recipient address change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [normalizedAmount, recipientAddress]);
 
   useEffect(() => {
-    if (stage === "setup") {
-      setError(null);
-    }
-  }, [stage]);
-
-  useEffect(() => {
     setContractAsRecipientAccepted(false);
   }, [recipient]);
 
   if (stage === "completed") {
-    return (
-      <Success
-        heading="Complete"
-        subheading="Operation is in progress"
-        buttonDisabled={submittingTransaction}
-        onButtonClick={handleComplete}
-      />
-    );
+    return <Success heading="Complete" subheading="Operation is in progress" buttonDisabled={false} onButtonClick={handleComplete} />;
   }
 
   let headerTitle = "Send";
@@ -238,7 +232,7 @@ export function Send() {
     new Decimal(normalizedAmount).eq(0) ||
     !recipientAddress ||
     !isEthereumAddress(recipientAddress) ||
-    !transactionManager?.feeManager;
+    !transactionManager?.feeStrategy;
 
   const notEnoughFunds = !missingRequiredInformation && !isSufficientFundsForTransaction;
 
@@ -246,7 +240,7 @@ export function Send() {
     missingRequiredInformation ||
     exceedsBalance ||
     error !== null ||
-    !transactionManager.feeManager.hasEnoughFunds ||
+    !transactionManager.feeStrategy.hasEnoughFunds ||
     notEnoughFunds ||
     disableButton;
 
@@ -267,9 +261,7 @@ export function Send() {
           amount={amount}
           onAmountChange={setAmount}
           exceedsBalance={exceedsBalance}
-          // memo={memo}
-          // onMemoChange={setMemo}
-          feeManager={transactionManager?.feeManager ?? null}
+          feeManager={transactionManager?.feeStrategy ?? null}
           onPreview={handleShowStagePreview}
           onWarning={handleShowStageWarning}
           error={error}
@@ -283,8 +275,7 @@ export function Send() {
           activeAccount={activeAccount}
           recipientAddress={recipientAddress}
           amount={amount}
-          feeManager={transactionManager?.feeManager ?? null}
-          // memo={memo}
+          feeManager={transactionManager?.feeStrategy ?? null}
           onCompleted={handleShowStageCompleted}
           error={error}
           notification={notification}

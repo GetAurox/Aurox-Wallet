@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { orderBy, partition } from "lodash";
+import orderBy from "lodash/orderBy";
+import partition from "lodash/partition";
 
 import { BlockchainNetwork } from "common/types";
 import {
@@ -26,7 +27,7 @@ export function useOrderedNetworks(networks: BlockchainNetwork[]): BlockchainNet
 
     return [
       ...orderBy(topNetworks, network => chainIdsOfTopNetworks.indexOf(network.chainId), ["asc"]),
-      ...orderBy(otherNetworks, network => network.name, ["asc"]),
+      ...orderBy(otherNetworks, [network => !network.disabled, network => network.name], ["desc", "asc"]),
     ];
   }, [networks]);
 }

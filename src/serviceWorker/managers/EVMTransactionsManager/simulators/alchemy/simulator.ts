@@ -1,7 +1,8 @@
 import axios from "axios";
+import { TransactionRequest } from "@ethersproject/abstract-provider";
 
 import { alchemySimulationSupportedChains, ETHEREUM_MAINNET_CHAIN_ID, ETH_ADDRESS } from "common/config";
-import { Alchemy, Simulation, TransactionRequest } from "common/types";
+import { Alchemy, Simulation } from "common/types";
 
 import { isAddressEqual } from "../utils";
 
@@ -29,7 +30,7 @@ export function prepareRequest(transactions: TransactionRequest[]) {
     return {
       to: tx.to,
       from: tx.from,
-      data: tx.data?.length > 40 ? tx.data : undefined,
+      data: tx.data && tx.data.length > 40 ? tx.data : undefined,
       value: tx.value ?? "0x",
     };
   });
@@ -109,7 +110,7 @@ export async function simulate(transactions: TransactionRequest[], chainId?: num
       return { simulator: "alchemy", success: false, error: data.error.message };
     }
 
-    return normalizeResponse(address, data);
+    return normalizeResponse(address!, data);
   } catch (error) {
     console.error("Failed to simulate transactions with Alchemy", error);
 

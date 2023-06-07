@@ -138,15 +138,26 @@ export default function GetStartedSection() {
                 >
                   The multi-chain browser wallet designed for safer storage, better security, and smarter insights.{" "}
                 </Typography>
-              </Stack>
-              <Box>
-                <Box>
-                  <Icon name="40px-scroll" size="large" />
+
+                <Box
+                  animate={{ height: "auto" }}
+                  component={motion.div}
+                  overflow="hidden"
+                  initial={{ height: 0 }}
+                  transition={{
+                    delay: 0.4,
+                    duration: 1,
+                  }}
+                >
+                  <Box>
+                    <Icon name="40px-scroll" size="large" />
+                  </Box>
+                  <Typography mt="12px" variant="btn50-bs">
+                    Scroll down to the bottom of the page to set up your wallet
+                  </Typography>
                 </Box>
-                <Typography mt="12px" variant="btn50-bs">
-                  Scroll
-                </Typography>
-              </Box>
+              </Stack>
+              <div />
             </Stack>
           </Container>
         </motion.div>

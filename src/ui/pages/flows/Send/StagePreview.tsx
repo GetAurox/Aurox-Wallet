@@ -7,12 +7,12 @@ import { Theme, Button, Stack, Box, Divider, Typography } from "@mui/material";
 import { getAccountAddressForChainType } from "common/utils";
 import { AccountInfo } from "common/types";
 
-import { EVMFeeManager } from "ui/common/fee";
+import { EVMFeeStrategy } from "ui/common/fee";
 import { formatAmount } from "ui/common/utils";
 
 import FromAndToDetails from "ui/components/flows/info/FromAndToDetailsInfo";
 import ErrorText from "ui/components/form/ErrorText";
-import NetworkFeeV2 from "ui/components/flows/feeSelection/NetworkFeeV2";
+import NetworkFee from "ui/components/flows/feeSelection/NetworkFee";
 import AlertStatus from "ui/components/common/AlertStatus";
 
 import { TokenDisplayWithTicker } from "ui/types";
@@ -23,8 +23,7 @@ export interface StagePreviewProps {
   activeAccount: AccountInfo | null;
   recipientAddress: string;
   amount: string;
-  // memo: string;
-  feeManager: EVMFeeManager | null;
+  feeManager: EVMFeeStrategy | null;
   onCompleted: () => void;
   error: string | null;
   stepButtonDisabled: boolean;
@@ -32,21 +31,12 @@ export interface StagePreviewProps {
 }
 
 export default function StagePreview(props: StagePreviewProps) {
-  const {
-    selectedToken,
-    activeAccount,
-    recipientAddress,
-    amount,
-    // memo,
-    feeManager,
-    onCompleted,
-    error,
-    stepButtonDisabled,
-    notification,
-  } = props;
+  const { selectedToken, activeAccount, recipientAddress, amount, feeManager, onCompleted, error, stepButtonDisabled, notification } =
+    props;
 
   const normalizedAmount = !amount.trim() ? "0" : amount;
   const normalizedPrice = !selectedToken.priceUSD ? "0" : selectedToken.priceUSD;
+
   const amountValue = new Decimal(normalizedAmount).times(new Decimal(normalizedPrice)).toNumber();
 
   const network = useNetworkByIdentifier(selectedToken.networkIdentifier);
@@ -64,17 +54,6 @@ export default function StagePreview(props: StagePreviewProps) {
       </Typography>
     </Stack>
   );
-
-  /*
-  const memoOutputRender = memo && (
-    <Stack mt="14px">
-      <Typography variant="medium" color="text.secondary">Memo</Typography>
-      <Typography variant="large" mt={0.75} sx={{ wordBreak: "break-all" }}>
-        {memo}
-      </Typography>
-    </Stack>
-  );
-  */
 
   const totalRender = useMemo(() => {
     if (!feeManager?.feePriceInNativeCurrency) return;
@@ -99,10 +78,9 @@ export default function StagePreview(props: StagePreviewProps) {
     <>
       <Stack width={1} px={2}>
         <FromAndToDetails from={getAccountAddressForChainType(activeAccount as AccountInfo, "evm")} to={recipientAddress} />
-        {/* {memoOutputRender} */}
         <Divider sx={{ mt: 2.25, borderColor: (theme: Theme) => theme.palette.custom.grey["19"] }} />
         {amountOutputRender}
-        {<NetworkFeeV2 networkIdentifier={selectedToken?.networkIdentifier} feeManager={feeManager} />}
+        {<NetworkFee networkIdentifier={selectedToken?.networkIdentifier} feeManager={feeManager} />}
         <Divider sx={{ mt: "18px", borderColor: (theme: Theme) => theme.palette.custom.grey["19"] }} />
         {totalRender}
       </Stack>

@@ -1,11 +1,12 @@
 import { useState, useCallback, Dispatch, SetStateAction } from "react";
 import produce from "immer";
 
-import { useHistoryPush, useHistoryState, useHistoryStateStasher } from "ui/common/history";
 import { useSyncFavoriteAssets, useTokens } from "ui/hooks";
 import { GraphQLMarketsAPICoin } from "ui/types";
 
+import { useHistoryPush, useHistoryState, useHistoryStateStasher } from "ui/common/history";
 import { BASIC_LIST_ITEM_HEIGHT } from "ui/common/constants";
+import useAnalytics from "ui/common/analytics";
 
 import ScrollableList from "ui/components/common/ScrollableList";
 import NotFound from "ui/components/common/NotFound";
@@ -32,6 +33,8 @@ export default function MarketTokens(props: MarketTokensProps) {
   const [filters, setFilters] = useHistoryState<"favorites"[]>("marketTokenFilters", []);
 
   const stateStasher = useHistoryStateStasher();
+
+  const { trackButtonClicked } = useAnalytics();
 
   const push = useHistoryPush();
 
@@ -79,9 +82,11 @@ export default function MarketTokens(props: MarketTokensProps) {
 
       stateStasher<MarketsViewStateValues>("markets", viewStateToStash);
 
+      trackButtonClicked("Market Token");
+
       push(`/token/global/${assetId}`);
     },
-    [push, stateStasher, viewState],
+    [push, stateStasher, trackButtonClicked, viewState],
   );
 
   const handleScroll = (value: boolean) => {
@@ -101,15 +106,15 @@ export default function MarketTokens(props: MarketTokensProps) {
         notFound
       ) : (
         <ScrollableList
-          rowWidth={ROW_WIDTH}
           items={tokens}
           loadMore={handleLoadMore}
-          isNextPageLoading={loading}
           hasNextPage={hasNextResults}
-          scrollToIndex={scrollToIndex}
+          listHeight={document.body.clientHeight - HEADER_HEIGHT}
+          listWidth={ROW_WIDTH}
           itemSize={BASIC_LIST_ITEM_HEIGHT}
+          isNextPageLoading={loading}
           onScrollingChanged={handleScroll}
-          rowHeight={document.body.clientHeight - HEADER_HEIGHT}
+          scrollToIndex={scrollToIndex}
         >
           {props => (
             <MarketsTokenRow

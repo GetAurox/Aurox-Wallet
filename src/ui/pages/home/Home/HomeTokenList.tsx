@@ -4,16 +4,17 @@ import orderBy from "lodash/orderBy";
 import partition from "lodash/partition";
 
 import { List, IconButton, Typography } from "@mui/material";
-
 import { Add as AddIcon } from "@mui/icons-material";
+
+import { defaultUserPreferences } from "common/storage";
 
 import { SortSetting, TokenDisplayWithTicker } from "ui/types";
 import { useLocalUserPreferences, useFuse, useCurrentTabDappConnectionInfo } from "ui/hooks";
+
 import { useHistoryPush } from "ui/common/history";
+import useAnalytics from "ui/common/analytics";
 
 import EmptyList from "ui/components/common/EmptyList";
-
-import { defaultUserPreferences } from "common/storage";
 
 import HomeListSubheader from "./HomeListSubheader";
 import HomeTokenListItem from "./HomeTokenListItem";
@@ -37,6 +38,7 @@ export default memo(function HomeTokenList(props: HomeTokenListProps) {
   const { tokens } = props;
 
   const push = useHistoryPush();
+  const { trackButtonClicked } = useAnalytics();
 
   const { connection, isDAppConnected } = useCurrentTabDappConnectionInfo();
 
@@ -52,6 +54,8 @@ export default memo(function HomeTokenList(props: HomeTokenListProps) {
   });
 
   const handleItemClick = (token: TokenDisplayWithTicker) => {
+    trackButtonClicked("My Balances Token");
+
     push(`/token/network-specific/${token.key}`);
   };
 
@@ -60,6 +64,8 @@ export default memo(function HomeTokenList(props: HomeTokenListProps) {
   };
 
   const handleGoToManageTokens = () => {
+    trackButtonClicked("My Balances Manage");
+
     push("/manage-tokens");
   };
 

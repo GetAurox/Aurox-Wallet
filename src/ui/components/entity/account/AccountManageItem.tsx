@@ -128,59 +128,57 @@ export default function AccountManageItem(props: AccountManageItemProps) {
   }
 
   return (
-    <>
-      <ListItem
-        disablePadding
-        sx={{
-          border: "1px solid",
-          borderRadius: "10px",
-          borderColor: (theme: Theme) => `${isActive ? theme.palette.primary.main : theme.palette.custom.grey["19"]}`,
-        }}
-      >
-        <ListItemButton role={undefined} onClick={handleItemClick} dense sx={sxStyles.listItemButton}>
-          <ListItemText
-            disableTypography
-            primary={
-              <>
-                <Stack direction="row" justifyContent="space-between">
-                  <Stack direction="row" alignItems="center" columnGap={0.5} mb="2px">
-                    <Typography noWrap fontSize={16} lineHeight={24 / 16} variant="headingSmall">
-                      {account.alias}
-                    </Typography>
-                    {isConnected && <IconWalletConnected />}
-                  </Stack>
-                  {typeLabel && <Chip size="small" sx={{ ...sxStyles.typeLabel, mr: hideNextIcon ? 0 : -3 }} label={typeLabel} />}
+    <ListItem
+      disablePadding
+      sx={{
+        border: "1px solid",
+        borderRadius: "10px",
+        borderColor: (theme: Theme) => `${isActive ? theme.palette.primary.main : theme.palette.custom.grey["19"]}`,
+      }}
+    >
+      <ListItemButton role={undefined} onClick={handleItemClick} dense sx={sxStyles.listItemButton}>
+        <ListItemText
+          disableTypography
+          primary={
+            <>
+              <Stack direction="row" justifyContent="space-between">
+                <Stack direction="row" alignItems="center" columnGap={0.5} mb="2px">
+                  <Typography noWrap fontSize={16} lineHeight={24 / 16} variant="headingSmall">
+                    {account.alias}
+                  </Typography>
+                  {isConnected && <IconWalletConnected />}
                 </Stack>
-                <CopyableText text={addressDisplay} />
-                {domainRender}
-                <Typography display="block" variant="headingSmall" mt={0.5} fontSize={14} lineHeight={20 / 14} letterSpacing="0.1px">
-                  {portfolioUSDValue ? `$${formatPrice(portfolioUSDValue)}` : ""}
-                </Typography>
-                <TokenIconDisplay tokens={tokens} mb={0} />
-              </>
-            }
-            secondary={
-              <Box mt={1.5}>
-                {!hideActionButtons && (
-                  <Stack direction="row" gap={2}>
-                    <Button color="primary" variant="text" sx={sxStyles.actionButtons} onClick={handleEdit}>
-                      Edit
-                    </Button>
-                    <Button color="inherit" variant="text" sx={sxStyles.actionButtons} onClick={toggleHidden}>
-                      {account.hidden ? "Unhide" : "Hide"}
-                    </Button>
-                  </Stack>
-                )}
-              </Box>
-            }
-          />
-          {!hideNextIcon && (
-            <ListItemIcon sx={isActive ? sxStyles.iconActive : sxStyles.icon}>
-              <IconArrow />
-            </ListItemIcon>
-          )}
-        </ListItemButton>
-      </ListItem>
-    </>
+                {typeLabel && <Chip size="small" sx={{ ...sxStyles.typeLabel, mr: hideNextIcon ? 0 : -3 }} label={typeLabel} />}
+              </Stack>
+              <CopyableText text={addressDisplay} />
+              {domainRender}
+              <Typography component="p" variant="headingSmall" mt={0.5} fontSize={14} lineHeight={20 / 14} letterSpacing="0.1px">
+                {portfolioUSDValue ? `$${formatPrice(portfolioUSDValue)}` : ""}
+              </Typography>
+              <TokenIconDisplay tokens={tokens} mb={0} />
+            </>
+          }
+          secondary={
+            <Box mt={1.5}>
+              {!hideActionButtons && (
+                <Stack direction="row" gap={2}>
+                  <Button color="primary" variant="text" sx={sxStyles.actionButtons} onClick={handleEdit}>
+                    Edit
+                  </Button>
+                  <Button color="inherit" variant="text" sx={sxStyles.actionButtons} onClick={toggleHidden}>
+                    {account.hidden ? "Unhide" : "Hide"}
+                  </Button>
+                </Stack>
+              )}
+            </Box>
+          }
+        />
+        {!hideNextIcon && (
+          <ListItemIcon sx={isActive ? sxStyles.iconActive : sxStyles.icon}>
+            <IconArrow />
+          </ListItemIcon>
+        )}
+      </ListItemButton>
+    </ListItem>
   );
 }

@@ -1,7 +1,5 @@
 import { v4 as uuidV4 } from "uuid";
 
-import { assertServiceWorkerIsAlive } from "common/chrome/workarounds/sw5MinuteDeathmark/messaging";
-
 import { messageIsQueryResponse, messageIsQuery, getSenderAccessInfo, senderIsInternalExtensionFrame } from "./utils";
 import { QueryEvent, QueryMessagePayload, QueryResponseMessagePayload, QueryTarget, SenderACL } from "./types";
 import { QueryTimeoutError } from "./errors";
@@ -16,8 +14,6 @@ export async function sendQuery<T, S>(topic: string, target: QueryTarget, data: 
   if (options && options.timeout === null) {
     timeout = null;
   }
-
-  await assertServiceWorkerIsAlive();
 
   return new Promise((resolve, reject) => {
     const requestUUID = uuidV4();

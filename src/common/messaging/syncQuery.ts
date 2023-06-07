@@ -1,5 +1,3 @@
-import { assertServiceWorkerIsAlive } from "common/chrome/workarounds/sw5MinuteDeathmark/messaging";
-
 import { SyncQueryEvent, SyncQueryMessagePayload, SyncQueryResponseMessagePayload, QueryTarget, SenderACL } from "./types";
 import { messageIsSyncQuery, getSenderAccessInfo } from "./utils";
 
@@ -8,9 +6,7 @@ import { messageIsSyncQuery, getSenderAccessInfo } from "./utils";
  *
  * Useful for fast data acquisitions
  */
-export async function sendSyncResponderQuery<T, S>(topic: string, target: QueryTarget, data: T): Promise<S> {
-  await assertServiceWorkerIsAlive();
-
+export function sendSyncResponderQuery<T, S>(topic: string, target: QueryTarget, data: T): Promise<S> {
   return new Promise((resolve, reject) => {
     const handler = (response: SyncQueryResponseMessagePayload<S>) => {
       if (chrome.runtime.lastError) {

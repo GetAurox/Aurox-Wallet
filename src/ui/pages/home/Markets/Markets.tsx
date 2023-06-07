@@ -5,13 +5,13 @@ import without from "lodash/without";
 import { Box, Stack, Theme, Typography } from "@mui/material";
 import { Star as StarIcon, StarBorder as StarBorderIcon } from "@mui/icons-material";
 
+import useAnalytics from "ui/common/analytics";
 import { EasterEgg } from "ui/common/rewardSystem";
 import { useHistoryStateStashPopper, useHistoryState } from "ui/common/history";
 
 import SearchField from "ui/components/form/SearchField";
 
 import MarketTokens, { DEFAULT_TOKENS_PER_PAGE } from "./MarketTokens";
-
 import { MarketsViewStateValues } from "./types";
 
 const sxStyles = {
@@ -54,6 +54,8 @@ export default function Markets() {
   const [isVisible, setIsVisible] = useState(true);
   const [viewState, setViewState] = useState<MarketsViewStateValues>(popStash("markets") ?? defaultViewState);
 
+  const { trackButtonClicked } = useAnalytics();
+
   const search = viewState.search;
   const isFavoritesFilterSet = filters.some(filter => filter === "favorites");
 
@@ -71,6 +73,8 @@ export default function Markets() {
         draft.tokenIndex = defaultViewState.tokenIndex;
       }),
     );
+
+    trackButtonClicked("Market Favorites");
   };
 
   const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {

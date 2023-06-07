@@ -10,8 +10,10 @@ import { Box, Button, Tab, Tabs, IconButton, List, Divider } from "@mui/material
 import { ImportedAsset } from "common/operations";
 import { applyTokenAssetVisibilityRules, getNetworkDefinitionFromIdentifier } from "common/utils";
 
-import { useActiveAccountBalances, useEnabledNetworks, useFuse, useImportedAssets, useTokensDisplayWithTickers } from "ui/hooks";
+import useAnalytics from "ui/common/analytics";
 import { useHistoryState, useHistoryGoBack, useHistoryPush } from "ui/common/history";
+
+import { useActiveAccountBalances, useEnabledNetworks, useFuse, useImportedAssets, useTokensDisplayWithTickers } from "ui/hooks";
 import { FlatTokenBalanceInfo, TokenDisplay, TokenDisplayWithTicker } from "ui/types";
 
 import CustomControls from "ui/components/controls/CustomControls";
@@ -110,6 +112,8 @@ export default function ManageTokens() {
 
   const goBack = useHistoryGoBack();
   const push = useHistoryPush();
+
+  const { trackButtonClicked } = useAnalytics();
 
   const [verifyFilter, setVerifyFilter] = useHistoryState<VerifyFilter>("verifyFilter", "verified");
   const [visibilityFilter, setVisibilityFilter] = useHistoryState<VisibilityFilter>("visibilityFilter", "show-all");
@@ -219,7 +223,11 @@ export default function ManageTokens() {
     }
   }, [currentlyVisibleAssetKeys, selectedAssetKeys, unselectedAssetKeys]);
 
-  const openFilterDialog = () => setFilterDialogOpen(true);
+  const openFilterDialog = () => {
+    setFilterDialogOpen(true);
+
+    trackButtonClicked("Manage Token Filter");
+  };
 
   const closeFilterDialog = () => setFilterDialogOpen(false);
 

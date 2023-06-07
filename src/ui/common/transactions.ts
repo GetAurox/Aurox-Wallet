@@ -19,6 +19,7 @@ import { ERC721__factory } from "common/wallet/typechain/factories/ERC721__facto
 
 import { EthereumAccountETHTransaction, EthereumAccountNFTTransfer, EthereumAccountTransaction } from "ui/types";
 import { formatValueUSD, formatPrice, formatAmount, ONE_HUNDRED_MILLIONS } from "ui/common/utils";
+import { restoreBigNumberFields } from "common/utils";
 
 const txTokenListFormatDate = "MMM D";
 const txTokenFormatDate = "h:mm A [on] MMM D, YYYY";
@@ -160,6 +161,7 @@ export function mapTokenTransactionsToTokenTransactionRenderData(
         txHash: tx.txHash,
         nonce: tx.transaction?.nonce,
         networkIdentifier: tx.networkIdentifier,
+        gasless: "gasless" in tx && tx.gasless,
         isCached: true,
       };
     } else {
@@ -342,24 +344,12 @@ export function mapTokenTransactionToTokenTransactionDetails(
   const date = timestamp ? moment(timestamp).format(txTokenFormatDate) : "---";
 
   if (!("__typename" in tx)) {
-    const gasLimitHexString = tx.transaction.gasLimit._hex;
-    const gasLimit = Number(gasLimitHexString).toString();
+    const restoredFields = restoreBigNumberFields<any>(tx.transaction);
 
-    let gasPriceSource = { _isBigNumber: true, _hex: "0x0" };
-
-    if (tx.transaction.gasPrice) {
-      gasPriceSource = tx.transaction.gasPrice;
-    }
-
-    if (tx.transaction.maxFeePerGas) {
-      gasPriceSource = tx.transaction.maxFeePerGas;
-    }
+    const gasLimit = ethers.utils.formatUnits(restoredFields?.gasLimit ?? 0, "wei");
+    const gasPrice = ethers.utils.formatUnits(restoredFields?.gasPrice ?? restoredFields?.maxFeePerGas ?? 0, "gwei");
 
     const recipientAddress = getRecipientAddressFromData(tx.transaction.data);
-
-    const gasPriceHexString = gasPriceSource._hex;
-    const gasPriceWEI = Number(gasPriceHexString ?? 0) ?? 0;
-    const gasPrice = ethers.utils.formatUnits(gasPriceWEI, "gwei");
 
     result = {
       ...resolveTransactionStatus(tx),
@@ -380,6 +370,7 @@ export function mapTokenTransactionToTokenTransactionDetails(
       title: "RPC Transaction",
       networkIdentifier: tx.networkIdentifier,
       isCached: true,
+      gasless: tx.gasless,
     };
   } else {
     let gasPriceString = "0";

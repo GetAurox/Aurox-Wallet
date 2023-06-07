@@ -23,6 +23,8 @@ import {
 import PortfolioValueChart from "ui/components/charting/PortfolioValueChart";
 import AlertWithLink from "ui/components/common/AlertWithLink";
 
+import useAnalytics from "ui/common/analytics";
+
 import HomeAccountCard from "./HomeAccountCard";
 import HomeTokenList from "./HomeTokenList";
 import HomeNFTList from "./HomeNFTList";
@@ -68,6 +70,7 @@ export default function Home() {
   const [tabValue, setTabValue] = useHistoryState("homeTab", 0);
 
   const push = useHistoryPush();
+  const { trackButtonClicked } = useAnalytics();
 
   const balances = useActiveAccountFlatTokenBalances();
   const [userPreferences, setUserPreferences] = useLocalUserPreferences();
@@ -117,6 +120,8 @@ export default function Home() {
   };
 
   const handleManage = () => {
+    trackButtonClicked("Manage Wallets");
+
     push("/manage");
   };
 

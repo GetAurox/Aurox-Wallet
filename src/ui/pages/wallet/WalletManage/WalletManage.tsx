@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 
-import { Fab, Stack, Typography } from "@mui/material";
 import { Add as AddIcon } from "@mui/icons-material";
+import { Fab, Stack, Typography } from "@mui/material";
 
 import { AccountInfo } from "common/types";
 import { Wallet } from "common/operations";
 import { getAccountAddressForChainType } from "common/utils";
 
 import { useAccountsVisibleOrdered, useCurrentTabDappConnectionInfo, useWalletPortfolioUSDValue } from "ui/hooks";
+
 import { useHistoryGoBack } from "ui/common/history";
+import useAnalytics from "ui/common/analytics";
 import { formatPrice } from "ui/common/utils";
 
 import AccountManageItem from "ui/components/entity/account/AccountManageItem";
@@ -18,8 +20,8 @@ import Header from "ui/components/layout/misc/Header";
 
 import { WalletManageActionsModal } from "../WalletManageActionsModal";
 
-import WalletManageHiddenWalletModal from "./WalletManageHiddenWalletModal";
 import WalletManageWarningModal from "./WalletManageWarningModal";
+import WalletManageHiddenWalletModal from "./WalletManageHiddenWalletModal";
 
 const sxStyles = {
   checkbox: {
@@ -40,6 +42,8 @@ export default function WalletManage() {
   const [pendingAccount, setPendingAccount] = useState<AccountInfo | null>(null);
 
   const goBack = useHistoryGoBack();
+
+  const { trackButtonClicked } = useAnalytics();
 
   const accounts = useAccountsVisibleOrdered(showHidden);
 
@@ -68,6 +72,8 @@ export default function WalletManage() {
 
   const toggleHiddenWallets = () => {
     setShowHidden(value => !value);
+
+    trackButtonClicked("Show Hidden Wallets");
   };
 
   const handleHide = async (account: AccountInfo) => {
@@ -81,6 +87,8 @@ export default function WalletManage() {
     }
 
     await Wallet.SetHidden.perform(account.uuid, !currentlyHidden);
+
+    trackButtonClicked(currentlyHidden ? "Unhide Wallet" : "Hide Wallet");
   };
 
   const handleItemClick = async (account: AccountInfo) => {

@@ -8,6 +8,7 @@ const spinButton = {
 
 const StyledInput = styled(InputBase)(({ theme }) => ({
   [`&.${inputBaseClasses.root}`]: {
+    flex: 1,
     padding: 0,
   },
   [`& .${inputBaseClasses.input}`]: {
@@ -20,5 +21,5 @@ const StyledInput = styled(InputBase)(({ theme }) => ({
 }));
 
 export default function TokenAmountSelectorInput(props: InputBaseProps) {
-  return <StyledInput sx={{ [`&.${inputBaseClasses.root}`]: { flex: 1 } }} {...props} />;
+  return <StyledInput {...props} />;
 }

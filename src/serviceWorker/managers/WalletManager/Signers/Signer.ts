@@ -59,6 +59,7 @@ export abstract class Signer<S extends SignerType = SignerType> {
       alias: this.#alias,
       chainType: this.#chainType,
       address: this.#address,
+      hidden: this.#hidden,
     } as SignerAccountInfoFromType<S>;
   }
 

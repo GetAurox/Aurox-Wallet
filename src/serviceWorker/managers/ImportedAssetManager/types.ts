@@ -14,6 +14,7 @@ export type ImportedAssetUpdateNFT = [
     | { visibility: ImportedAssetVisibility }
     | {
         name: string;
+        verified?: boolean;
         metadata: {
           tokenId: string;
           image: string | null;

@@ -78,6 +78,7 @@ export default function TransactionToken() {
               accountUUID={activeAccount?.uuid}
               transactionHash={transactionData.txHash}
               networkIdentifier={transactionData.networkIdentifier}
+              showActions={!transactionData.gasless}
             />
           )}
           {transactionData.side !== "swap" && (

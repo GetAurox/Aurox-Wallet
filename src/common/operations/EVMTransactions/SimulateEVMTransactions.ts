@@ -1,12 +1,15 @@
+import { TransactionRequest } from "@ethersproject/abstract-provider";
+
 import { registerQueryResponder, SenderACL, sendQuery } from "common/messaging";
-import { Simulation, TransactionRequest } from "common/types";
+import { Simulation } from "common/types";
 import { getTimeInMilliseconds } from "common/utils";
 
 const topic = "evm-transactions/simulate";
 
 export interface Request {
+  simulator: Simulation.SupportedSimulator;
   transactions: TransactionRequest[];
-  chainId?: number;
+  chainId: number;
 }
 
 export type Response = Simulation.Result;

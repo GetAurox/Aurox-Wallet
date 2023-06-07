@@ -1,9 +1,12 @@
 import pick from "lodash/pick";
+import Decimal from "decimal.js";
 import { TransactionRequest } from "@ethersproject/abstract-provider";
-import { BigNumber, constants } from "ethers";
-import { Deferrable, formatEther, formatUnits, parseUnits } from "ethers/lib/utils";
+import { BigNumber, constants, ethers } from "ethers";
+import { formatEther, formatUnits, parseUnits } from "ethers/lib/utils";
 
-import { EVMSignerPopup } from "ui/common/connections";
+import { parseEthersRPCError } from "common/errors";
+import { JsonRPCProviderWithRetry } from "common/wallet";
+
 import { GasPresetSettings } from "ui/types";
 
 import { EVMFeeManagerInterface } from "../base";
@@ -20,9 +23,11 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
   #feeSettings: FeeSettings<BigNumber> | null = null;
   #selectedFeePreference: FeePreference = "medium";
   #transaction: TransactionRequest;
-  #signer: EVMSignerPopup;
+  #provider: JsonRPCProviderWithRetry;
   #gasPresets?: GasPresetSettings;
 
+  #error: string | null = null;
+  #gasEstimate: BigNumber | null = null;
   #blockNumber = 0;
   #userBalance = constants.Zero;
 
@@ -34,14 +39,19 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
     },
   };
 
-  constructor(transaction: TransactionRequest, signer: EVMSignerPopup, gasPresets?: GasPresetSettings) {
-    this.#signer = signer;
+  constructor(transaction: TransactionRequest, provider: JsonRPCProviderWithRetry, userBalance: BigNumber, gasPresets?: GasPresetSettings) {
+    this.#provider = provider;
     this.#gasPresets = gasPresets;
+    this.#userBalance = userBalance;
     this.#transaction = pick(transaction, ["data", "from", "to", "value"]);
   }
 
   get feePreference() {
     return this.#selectedFeePreference;
+  }
+
+  get error() {
+    return this.#error;
   }
 
   get currentFeeSettings(): FeeConfigurationLegacy<BigNumber> | null {
@@ -50,8 +60,13 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
     return this.#feeSettings[this.#selectedFeePreference];
   }
 
-  get transaction(): Deferrable<TransactionRequest> {
-    return { ...this.#transaction, ...this.feeSettingsForEthereum, type: TransactionType.Legacy };
+  get transaction(): TransactionRequest {
+    return {
+      ...this.#transaction,
+      ...this.feeSettingsForEthereum,
+      chainId: this.#provider.network.chainId,
+      type: TransactionType.Legacy,
+    };
   }
 
   get feeSettingsForEthereum(): FeeConfigurationLegacy<string> | null {
@@ -112,34 +127,45 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
     return Number(parseFloat(price).toPrecision(6));
   }
 
-  async #configureFees() {
-    const [balance, gasLimit, gasPrice] = await Promise.all([
-      this.#signer.getBalance(),
-      this.#signer.estimateGas(this.#transaction),
-      this.#signer.getGasPrice(),
-    ]);
+  async #estimateGas() {
+    try {
+      if (!this.#gasEstimate || !this.#gasEstimate.eq(0)) {
+        this.#gasEstimate = await this.#provider.estimateGas(this.#transaction);
 
-    this.#configureFeesByPreference(gasPrice, gasLimit);
+        this.#error = null;
+      }
+    } catch (error) {
+      this.#error = parseEthersRPCError(error);
 
-    this.#userBalance = balance;
+      this.#gasEstimate = null;
+    }
   }
 
-  #configureFeesByPreference(gasPrice: BigNumber, gasLimit: BigNumber) {
+  async #configureFees() {
+    const [gasPrice] = await Promise.all([this.#provider.getGasPrice(), this.#estimateGas()]);
+
+    this.#configureFeesByPreference(gasPrice);
+  }
+
+  #configureFeesByPreference(gasPrice: BigNumber) {
+    const gasLimit = this.#gasEstimate || this.currentFeeSettings?.gasLimit || BigNumber.from(0);
+
     const getPreset = (gasPrice: BigNumber, preference: Exclude<FeePreference, "custom">): FeeConfigurationLegacy<BigNumber> => {
       const presetsEnabled = this.#gasPresets?.enabled ?? false;
 
       const preferenceGasPresets = this.#gasPresets?.[preference] ?? {};
 
-      const gasLimitPresetEnabled = presetsEnabled && preferenceGasPresets.gasLimit !== undefined;
+      const gasLimitPresetEnabled = presetsEnabled && preferenceGasPresets.gasLimit !== undefined && !gasLimit.eq(MINIMUM_GAS_LIMIT);
       const gasPricePresetEnabled = presetsEnabled && preferenceGasPresets.gasPrice !== undefined;
 
-      const gasLimitPreset = BigNumber.from(preferenceGasPresets.gasLimit ?? 0);
-      const gasPricePreset = BigNumber.from(preferenceGasPresets.gasPrice ?? 0);
+      const gasPricePreset = ethers.utils.parseUnits(preferenceGasPresets.gasPrice ?? "0", "gwei");
+
+      const gasLimitPresetPrecentage = new Decimal(preferenceGasPresets.gasLimit ?? "0").toNumber();
 
       return {
         type: TransactionType.Legacy,
         gasPrice: gasPricePresetEnabled ? gasPricePreset : gasPrice,
-        gasLimit: gasLimitPresetEnabled ? gasLimitPreset : getGasLimitByPreference(preference),
+        gasLimit: gasLimitPresetEnabled ? changeByPercentage(gasLimit, gasLimitPresetPrecentage) : getGasLimitByPreference(preference),
       };
     };
 
@@ -159,7 +185,7 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
 
   async updateFees() {
     try {
-      const block = await this.#signer.provider.getBlock("latest");
+      const block = await this.#provider.getBlock("latest");
 
       if (block.number === this.#blockNumber) return;
 
@@ -167,7 +193,7 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
 
       this.#blockNumber = block.number;
     } catch (error) {
-      console.error("Failed to update fees for legacy transaction", error);
+      throw new Error(parseEthersRPCError(error));
     }
   }
 
@@ -191,10 +217,15 @@ export class LegacyFeeManager implements EVMFeeManagerInterface<FeeConfiguration
     try {
       const gasLimit = BigNumber.from(value);
 
+      if (!this.#gasEstimate) {
+        this.#gasEstimate = gasLimit;
+      }
+
       this.#feeSettings.custom = {
         ...this.currentFeeSettings,
         gasLimit,
       };
+
       this.#selectedFeePreference = "custom";
     } catch (error) {
       console.error("Can not update gas limit", error);

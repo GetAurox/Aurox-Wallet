@@ -24,7 +24,7 @@ export default function useScavengerHuntMnemonic(account: AccountInfo | null, do
         const requestPath = `/api/v1/url/${domain}`;
         const message = `${requestMethod}${requestPath}{}`;
 
-        const signature = await Wallet.SignMessage.perform({
+        const signature = await Wallet.SignMessageV2.perform({
           chainType: "evm",
           message,
           uuid,
@@ -57,7 +57,7 @@ export default function useScavengerHuntMnemonic(account: AccountInfo | null, do
     if (account !== null && domain !== "") {
       const address = tryGetAccountAddressForChainType(account, "evm");
 
-      if (address) {
+      if (address && account.type !== "hardware") {
         fetch(account.uuid, address);
       }
     }

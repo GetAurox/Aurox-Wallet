@@ -7,8 +7,10 @@ import { DApp as DAppOps, Password } from "common/operations";
 import { DApp as DAppEvents } from "common/events";
 import { Operation } from "common/types";
 
-import { useCurrentTabDappConnectionInfo, useCurrentTabDomain, useDAppOperations, useOnboardingData } from "ui/hooks";
+import useAnalytics from "ui/common/analytics";
 import { useGoHome, useHistoryPush } from "ui/common/history";
+
+import { useCurrentTabDappConnectionInfo, useCurrentTabDomain, useDAppOperations, useOnboardingData } from "ui/hooks";
 
 import SplashLogo from "ui/components/common/SplashLogo";
 import PasswordField from "ui/components/form/PasswordField";
@@ -39,6 +41,8 @@ export default function Login(props: LoginProps) {
 
   const goHome = useGoHome();
   const push = useHistoryPush();
+
+  const { trackButtonClicked } = useAnalytics();
 
   const { getUserSubdomain } = useOnboardingData();
   const tabDomain = useCurrentTabDomain();
@@ -119,6 +123,8 @@ export default function Login(props: LoginProps) {
       domain,
     });
 
+    trackButtonClicked("Connected with Aurox");
+
     setShouldConsiderOtherProvider(false);
   };
 
@@ -137,6 +143,8 @@ export default function Login(props: LoginProps) {
     });
 
     DAppEvents.TransactionRequestResponded.broadcast(selectedOperation.id, { accountUUID: "", networkIdentifier: "" });
+
+    trackButtonClicked("Connected with Metamask");
 
     setShouldConsiderOtherProvider(false);
   };

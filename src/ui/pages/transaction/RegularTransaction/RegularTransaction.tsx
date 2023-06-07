@@ -23,7 +23,7 @@ import Success from "ui/components/layout/misc/Success";
 import AlertStatus from "ui/components/common/AlertStatus";
 
 import TransactionPageWrapper from "ui/components/flows/transaction/TransactionPageWrapper";
-import NetworkFeeV2 from "ui/components/flows/feeSelection/NetworkFeeV2";
+import NetworkFee from "ui/components/flows/feeSelection/NetworkFee";
 import { useTransactionManager } from "ui/hooks/rpc";
 import ErrorText from "ui/components/form/ErrorText";
 
@@ -60,7 +60,7 @@ export default memo(function RegularTransaction(props: RegularTransactionProps) 
   const handleOnSubmit = async () => {
     if (!transactionManager || submitting) return;
 
-    if (!transactionManager.feeManager?.hasEnoughFunds) {
+    if (!transactionManager.feeStrategy?.hasEnoughFunds) {
       setError(errorText);
       return;
     }
@@ -74,14 +74,15 @@ export default memo(function RegularTransaction(props: RegularTransactionProps) 
     setError("");
 
     try {
-      await transactionManager.sendTransaction(operation.id, {
+      const { hash } = await transactionManager.sendTransaction({
+        operationId: operation.id,
         message: "DApp Interaction",
         blockExplorerTxBaseURL: getTransactionExplorerLink(""),
       });
 
       setCompleted(true);
 
-      DAppEvents.TransactionRequestResponded.broadcast(operation.id, transactionManager.transactionHash);
+      DAppEvents.TransactionRequestResponded.broadcast(operation.id, hash);
     } catch (error) {
       if (typeof error === "string") {
         setNotification(error);
@@ -94,11 +95,11 @@ export default memo(function RegularTransaction(props: RegularTransactionProps) 
     }
   };
 
-  const hasEnoughFunds = transactionManager?.feeManager?.hasEnoughFunds ?? true;
+  const hasEnoughFunds = transactionManager?.feeStrategy?.hasEnoughFunds ?? true;
 
   const errorText = `You do not have enough ${network?.currencySymbol} to submit this transaction`;
   // TODO: This is currently a bit buggy, simplifying it for my testing purposes
-  const activeSubmit = !!transactionManager?.isConnected && !error && hasEnoughFunds;
+  const activeSubmit = !error && hasEnoughFunds;
   const showPassword = status === "black";
 
   const contractStatus = userPreferences.security.smartContractMonitoringEnabled ? status : null;
@@ -130,7 +131,7 @@ export default memo(function RegularTransaction(props: RegularTransactionProps) 
           actionType={decodedTransaction?.name ?? "Transaction"}
         />
       )}
-      <NetworkFeeV2 networkIdentifier={operation.networkIdentifier} feeManager={transactionManager?.feeManager ?? null} />
+      <NetworkFee networkIdentifier={operation.networkIdentifier} feeManager={transactionManager?.feeStrategy ?? null} />
       {!hasEnoughFunds && (
         <ErrorText error={`You do not have enough ${nativeCurrencySymbol} to pay for the network fee`} mt={1} justifyContent="center" />
       )}

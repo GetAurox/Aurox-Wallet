@@ -11,6 +11,7 @@ import {
 import { Notifications } from "common/operations";
 import { Password } from "common/operations";
 
+import useAnalytics from "ui/common/analytics";
 import { useHistoryReset } from "ui/common/history";
 import { IconFullScreen, IconAuroxLogo } from "ui/components/icons";
 
@@ -26,6 +27,8 @@ export default function HomeHeader(props: HomeHeaderProps) {
   const reset = useHistoryReset();
 
   const [notificationsAllowed, setNotificationsAllowed] = useState<boolean | null>(null);
+
+  const { trackButtonClicked } = useAnalytics();
 
   const handleFullScreen = () => {
     // TODO: implemenetation
@@ -52,10 +55,14 @@ export default function HomeHeader(props: HomeHeaderProps) {
       const granted = await Notifications.RequestNotificationsSupport.perform();
 
       setNotificationsAllowed(granted);
+
+      trackButtonClicked("Enable Notifications");
     } else {
       const removed = await Notifications.RemoveNotificationsSupport.perform();
 
       setNotificationsAllowed(!removed);
+
+      trackButtonClicked("Disable Notifications");
     }
   };
 

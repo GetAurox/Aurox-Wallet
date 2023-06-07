@@ -13,6 +13,7 @@ export interface TokenTransaction {
   status?: TransactionStatus;
   networkIdentifier?: string;
   isCached?: boolean;
+  gasless?: boolean;
 }
 
 export interface TokenTransactionDetails extends TokenTransaction {

@@ -92,14 +92,14 @@ export default function General() {
             endIcon={<Switch checked={getValue(preferencesKey)} onClick={createHandleToggle(preferencesKey)} />}
           />
         ))}
-        {/* <CommonListItem
+        <CommonListItem
           spacing={1.5}
           sx={sxStyles.listItem}
           endIcon={<IconArrow />}
           dividerVariant="middle"
           primaryLabel="Gas Presets"
           onClick={handleGasPresets}
-        /> */}
+        />
       </List>
     </>
   );

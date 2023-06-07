@@ -6,9 +6,11 @@ import RepeatOnIcon from "@mui/icons-material/RepeatOn";
 import WarningIcon from "@mui/icons-material/Warning";
 
 import { getUNSDomainRecordTypeFromTokenDisplay } from "common/utils";
-
 import { addressIsContract, ProviderManager } from "common/wallet";
 import { NFTItem } from "common/types";
+
+import useAnalytics from "ui/common/analytics";
+import { useHistoryReset, useHistoryGoBack, useHistoryPathParams } from "ui/common/history";
 
 import {
   useActiveAccount,
@@ -24,12 +26,9 @@ import {
 } from "ui/hooks";
 import { useTransactionManager } from "ui/hooks/rpc";
 
-import { useHistoryReset, useHistoryGoBack, useHistoryPathParams } from "ui/common/history";
-
 import ApproximateFee from "ui/components/flows/feeSelection/ApproximateFee";
 import CurrentNetworkInfo from "ui/components/flows/info/CurrentNetworkInfo";
 import FromAndToDetails from "ui/components/flows/info/FromAndToDetailsInfo";
-import NetworkFeeV2 from "ui/components/flows/feeSelection/NetworkFeeV2";
 import StageWrapper from "ui/components/flows/stages/StageWrapper";
 import WarningStage from "ui/components/flows/stages/WarningStage";
 // TODO: uncomment later
@@ -39,7 +38,7 @@ import AlertStatus from "ui/components/common/AlertStatus";
 import Success from "ui/components/layout/misc/Success";
 import FormField from "ui/components/form/FormField";
 import ErrorText from "ui/components/form/ErrorText";
-
+import NetworkFee from "ui/components/flows/feeSelection/NetworkFee";
 import { isDomainName, isEthereumAddress } from "ui/common/validators";
 
 import { getEVMTokenTransfer } from "ui/common/tokens";
@@ -87,6 +86,8 @@ export function SendNFT() {
 
   const activeAccount = useActiveAccount();
   const activeAccountNetworkAddress = useActiveAccountNetworkAddress();
+
+  const { trackButtonClicked } = useAnalytics();
 
   const network = useNetworkByIdentifier(networkIdentifier);
 
@@ -140,7 +141,7 @@ export function SendNFT() {
 
   const transactionManager = useTransactionManager(activeAccount, networkIdentifier, transaction);
 
-  const approximateFee = (transactionManager?.feeManager?.feePriceInNativeCurrency ?? 0) * Number(nativeTicker?.priceUSD ?? 0);
+  const approximateFee = (transactionManager?.feeStrategy?.feePriceInNativeCurrency ?? 0) * Number(nativeTicker?.priceUSD ?? 0);
 
   const handleGoToPreview = async () => {
     if (!activeAccount || !network || !nft) throw new Error("Cannot move to preview as fields are missing");
@@ -167,13 +168,14 @@ export function SendNFT() {
     setDisableButton(true);
 
     try {
-      const hash = await transactionManager.sendTransaction(undefined, {
+      const { hash } = await transactionManager.sendTransaction({
         message: `Send ${nft?.name}`,
         blockExplorerTxBaseURL: getTransactionExplorerLink(""),
       });
 
-      setTxHash(hash);
+      trackButtonClicked("Sent NFT");
 
+      setTxHash(hash);
       setStage("completed");
     } catch (error) {
       if (typeof error === "string") {
@@ -359,7 +361,7 @@ export function SendNFT() {
             <Typography variant="medium">{nft?.name}</Typography>
           </Stack>
           {network?.identifier && (
-            <NetworkFeeV2 networkIdentifier={network.identifier} feeManager={transactionManager?.feeManager ?? null} />
+            <NetworkFee networkIdentifier={network.identifier} feeManager={transactionManager?.feeStrategy ?? null} />
           )}
           {notification && (
             <Stack mt={1}>

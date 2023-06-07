@@ -1,15 +1,15 @@
-import { Box, Button, buttonClasses, IconButton, Stack, Tooltip, Typography } from "@mui/material";
+import { Box, Button, IconButton, Stack, Tooltip, Typography, buttonClasses } from "@mui/material";
 
 import { TokenDisplayWithTicker } from "ui/types";
-import { useTokenAssetTicker, useTokenMarketDetails } from "ui/hooks";
+import { useActiveAccount, useTokenAssetTicker, useTokenMarketDetails } from "ui/hooks";
 
 import { useHistoryPush } from "ui/common/history";
 
 import { IconInfo } from "ui/components/icons";
 import TokenLinks from "ui/components/entity/token/TokenLinks";
 import TokenSocials from "ui/components/entity/token/TokenSocials";
-import CustomControls from "ui/components/controls/CustomControls";
 import TokenPriceChart from "ui/components/charting/TokenPriceChart";
+import CustomControls from "ui/components/controls/CustomControls";
 
 import TokenStats from "./sections/TokenStats";
 import TokenAbout from "./sections/TokenAbout";
@@ -21,6 +21,9 @@ import { TokenSectionWrapper } from "./TokenSectionWrapper";
 const sxStyles = {
   fixedPanel: {
     mt: 3.5,
+  },
+  button: {
+    flex: 1,
   },
   infoIconButton: {
     p: 0,
@@ -51,10 +54,12 @@ export default function TokenGlobalAssetView(props: TokenNetworkSpecificAssetPro
   const push = useHistoryPush();
   const token = useTokenAssetTicker(assetKey);
   const { tokenDetails } = useTokenMarketDetails(assetKey);
+  const activeAccount = useActiveAccount();
+
+  const isHardwareWallet = activeAccount?.type === "hardware";
 
   const handleBuy = () => {
-    // push("/swap", { toAssetKey: token.key });
-    push("/", { section: "swap" });
+    push("/swap", { toAssetKey: token.key });
   };
 
   return (
@@ -89,32 +94,38 @@ export default function TokenGlobalAssetView(props: TokenNetworkSpecificAssetPro
       <CustomControls
         spacerSx={sxStyles.fixedPanel}
         primary={
-          <Tooltip
-            PopperProps={{ disablePortal: true }}
-            componentsProps={{ tooltip: { sx: sxStyles.tooltip } }}
-            title={
-              <Typography variant="medium" textAlign="center">
-                Gasless swapping is being finished & will be available soon. 
-              </Typography>
-            }
-          >
-            <Box height="fitContent" flex={1} component="span">
-              <Button
-                sx={sxStyles.primaryButton}
-                endIcon={
-                  <IconButton sx={sxStyles.infoIconButton} color="primary">
-                    <IconInfo />
-                  </IconButton>
-                }
-                variant="contained"
-                fullWidth
-                onClick={handleBuy}
-                disabled
-              >
-                Buy
-              </Button>
-            </Box>
-          </Tooltip>
+          isHardwareWallet ? (
+            <Tooltip
+              PopperProps={{ disablePortal: true }}
+              componentsProps={{ tooltip: { sx: sxStyles.tooltip } }}
+              title={
+                <Typography variant="medium" textAlign="center">
+                  Swapping with Hardware Wallets will be supported soon
+                </Typography>
+              }
+            >
+              <Box height="fitContent" flex={1} component="span">
+                <Button
+                  sx={sxStyles.primaryButton}
+                  endIcon={
+                    <IconButton sx={sxStyles.infoIconButton} color="primary">
+                      <IconInfo />
+                    </IconButton>
+                  }
+                  variant="contained"
+                  fullWidth
+                  onClick={handleBuy}
+                  disabled
+                >
+                  Buy
+                </Button>
+              </Box>
+            </Tooltip>
+          ) : (
+            <Button variant="outlined" sx={sxStyles.button} onClick={handleBuy}>
+              Buy
+            </Button>
+          )
         }
       />
     </>

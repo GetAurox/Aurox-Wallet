@@ -4,6 +4,7 @@ import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { Box, Button, CircularProgress, Link, Stack, Theme, Typography } from "@mui/material";
 import { ContentCopy as ContentCopyIcon } from "@mui/icons-material";
 
+import useAnalytics from "ui/common/analytics";
 import { useHistoryGoBack } from "ui/common/history";
 import { useRewardSystemRefereesCount, useRewardSystemReferralLink } from "ui/common/rewardSystem";
 
@@ -90,6 +91,8 @@ export default function InviteFriend() {
   const referralLink = useRewardSystemReferralLink();
   const refereesCount = useRewardSystemRefereesCount();
 
+  const { trackButtonClicked } = useAnalytics();
+
   const handleCopyToClipboard = (event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -102,6 +105,8 @@ export default function InviteFriend() {
         setStatus("failed");
       },
     );
+
+    trackButtonClicked("Copy Referral Link");
   };
 
   const rows = [

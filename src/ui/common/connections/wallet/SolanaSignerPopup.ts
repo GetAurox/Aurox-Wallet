@@ -27,7 +27,7 @@ export class SolanaSignerPopup {
     if (ethers.utils.isBytes(message)) message = ethers.utils.parseBytes32String(message);
 
     if (this.accountInfo.type === "mnemonic" || this.accountInfo.type === "private-key") {
-      return Wallet.SignMessage.perform({
+      return Wallet.SignMessageV2.perform({
         chainType: "solana",
         message,
         uuid: this.accountInfo.uuid,

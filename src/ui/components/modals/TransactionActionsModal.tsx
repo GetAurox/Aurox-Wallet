@@ -1,24 +1,20 @@
-import { useEffect, useState } from "react";
-
-import { TransactionResponse } from "@ethersproject/abstract-provider";
-import { formatUnits } from "@ethersproject/units";
-import { BigNumber } from "@ethersproject/bignumber";
+import { useCallback, useEffect, useMemo } from "react";
 
 import { Button } from "@mui/material";
 
-import { EVMTransactionStatus, RawTransaction } from "common/types";
+import { EVMTransactionStatus } from "common/types";
 import { EVMTransactions } from "common/operations";
-import { restoreBigNumberFields } from "common/utils";
+import { ProviderManager } from "common/wallet";
 
 import { useAccountByUUID, useNetworkGetter } from "ui/hooks";
 import { useTransactionManager } from "ui/hooks/rpc";
 import { useEVMTransactionsOfAccount } from "ui/hooks/states/evmTransactions";
 import { useHistoryPush } from "ui/common/history";
-import { TransactionType } from "ui/common/fee";
 
 import DialogBase from "ui/components/common/DialogBase";
-import NetworkFee from "ui/components/flows/feeSelection/NetworkFeeV2";
-import { ProviderManager } from "common/wallet";
+import NetworkFee from "ui/components/flows/feeSelection/NetworkFee";
+
+import { getCancelTransaction, getSpeedUpTransaction, getTransactionReplacementGasSettings } from "./helpers";
 
 export interface TransactionActionsModalProps {
   accountUUID: string;
@@ -32,108 +28,85 @@ export interface TransactionActionsModalProps {
 export default function TransactionActionsModal(props: TransactionActionsModalProps) {
   const { accountUUID, networkIdentifier, transactionHash, action, onClose, onCompleted } = props;
 
+  const transactionEntryKey = `${accountUUID}||${networkIdentifier}||${transactionHash}`;
+
   const push = useHistoryPush();
-
-  const account = useAccountByUUID(accountUUID);
-
   const networkGetter = useNetworkGetter();
 
-  const [transaction, setTransaction] = useState<RawTransaction | null>(null);
-  const [originalTransaction, setOriginalTransaction] = useState<TransactionResponse | null>(null);
-
+  const account = useAccountByUUID(accountUUID);
   const transactions = useEVMTransactionsOfAccount(accountUUID);
+
+  const originalTransaction = transactions?.[transactionEntryKey]?.transaction ?? null;
+
+  const transaction = useMemo(() => {
+    if (!originalTransaction) {
+      return null;
+    }
+
+    return action === "speedUp" ? getSpeedUpTransaction(originalTransaction) : getCancelTransaction(originalTransaction);
+  }, [originalTransaction, action]);
 
   const transactionManager = useTransactionManager(account, networkIdentifier, transaction);
 
-  useEffect(() => {
-    if (!networkIdentifier || !action || !transactions) return;
-
-    const key = `${accountUUID}||${networkIdentifier}||${transactionHash}`;
-
-    const originalTransaction = restoreBigNumberFields<TransactionResponse>(transactions[key].transaction);
-
-    const { from, to, value, data } = originalTransaction;
-
-    let transaction;
-
-    if (to && action === "speedUp") {
-      transaction = { from, data, to, value: value.toHexString() };
-    } else {
-      // Cancel is sending 0 ETH to yourself
-      transaction = { from, to: from, data: "0x", value: "0x0" };
-    }
-
-    setOriginalTransaction(originalTransaction);
-    setTransaction(transaction);
-  }, [networkIdentifier, accountUUID, action, transactionHash, transactions]);
-
   // Increase the gas preferences
   useEffect(() => {
-    if (!originalTransaction || !originalTransaction.gasLimit || !transactionManager?.feeManager?.currentFeeSettings) {
+    if (!originalTransaction || !originalTransaction.gasLimit || !transactionManager?.feeStrategy?.currentFeeSettings) {
       return;
     }
 
-    const maxBigNumber = (valueA: BigNumber | undefined, valueB: BigNumber) => {
-      return valueA?.gt(valueB) ? valueA : valueB;
-    };
+    const overrides = getTransactionReplacementGasSettings({
+      originalTransaction,
+      currentFeeSettings: transactionManager.feeStrategy.currentFeeSettings,
+    });
 
-    if (transactionManager.feeManager.currentFeeSettings.type === TransactionType.EIP1559) {
-      const { maxPriorityFeePerGas } = transactionManager.feeManager.currentFeeSettings;
-
-      const newMaxPriorityFeePerGas = maxBigNumber(originalTransaction.maxPriorityFeePerGas, maxPriorityFeePerGas).mul(2);
-
-      transactionManager.feeManager.changeMaxPriorityFeePerGas(formatUnits(newMaxPriorityFeePerGas, "gwei"));
-    } else {
-      const { gasPrice } = transactionManager.feeManager.currentFeeSettings;
-
-      const newGasPrice = maxBigNumber(originalTransaction.gasPrice, gasPrice).mul(2);
-
-      transactionManager.feeManager.changeGasPrice(formatUnits(newGasPrice, "gwei"));
+    if (overrides.gasPrice) {
+      transactionManager.feeStrategy.changeGasPrice(overrides.gasPrice);
+    } else if (!!overrides.baseFee && overrides.maxPriorityFeePerGas) {
+      transactionManager.feeStrategy.changeBaseFee(overrides.baseFee);
+      transactionManager.feeStrategy.changeMaxPriorityFeePerGas(overrides.maxPriorityFeePerGas);
     }
-  }, [originalTransaction, transactionManager?.feeManager]);
+  }, [originalTransaction, transactionManager?.feeStrategy]);
 
-  const onConfirm = async () => {
-    if (transactionManager && originalTransaction) {
-      const network = networkGetter(networkIdentifier);
-
-      if (!network) {
-        throw new Error("Unrecognized network");
-      }
-
-      const provider = ProviderManager.getProvider(network);
-
-      const receipt = await provider.getTransactionReceipt(originalTransaction.hash);
-
-      if (receipt?.status) {
-        console.error("Transaction already completed");
-
-        onCompleted();
-
-        return;
-      }
-
-      transactionManager.overrideNonce(originalTransaction.nonce);
-
-      await transactionManager.sendTransaction();
-
-      if (transactionManager.transactionHash) {
-        const status = action == "cancel" ? EVMTransactionStatus.Cancelled : EVMTransactionStatus.Replaced;
-
-        await EVMTransactions.UpdateEVMTransactionStatus.perform({ accountUUID, networkIdentifier, transactionHash, status });
-
-        onCompleted();
-
-        push(`/transactions/${transactionManager.transactionHash}/details`);
-      }
+  const onConfirm = useCallback(async () => {
+    if (!transactionManager || !originalTransaction) {
+      return;
     }
-  };
+
+    const network = networkGetter(networkIdentifier);
+
+    if (!network) {
+      throw new Error("Unrecognized network");
+    }
+
+    const provider = ProviderManager.getProvider(network);
+
+    const receipt = await provider.getTransactionReceipt(originalTransaction.hash);
+
+    if (receipt) {
+      console.error("Transaction already completed");
+
+      onCompleted();
+
+      return;
+    }
+
+    const { hash } = await transactionManager.sendTransaction({ nonce: originalTransaction.nonce });
+
+    const status = action == "cancel" ? EVMTransactionStatus.Cancelled : EVMTransactionStatus.Replaced;
+
+    await EVMTransactions.UpdateEVMTransactionStatus.perform({ accountUUID, networkIdentifier, transactionHash: hash, status });
+
+    onCompleted();
+
+    push(`/transactions/${hash}/details`);
+  }, [transactionManager, originalTransaction, accountUUID, networkIdentifier, action, networkGetter, onCompleted, push]);
 
   return (
     <DialogBase
       open
       onClose={onClose}
       title="Do you want to proceed?"
-      content={<NetworkFee networkIdentifier={networkIdentifier} feeManager={transactionManager?.feeManager ?? null} />}
+      content={<NetworkFee networkIdentifier={networkIdentifier} feeManager={transactionManager?.feeStrategy ?? null} />}
       actions={
         <Button fullWidth variant="contained" onClick={onConfirm}>
           {action === "speedUp" ? "Speed up" : "Cancel Transaction"}

@@ -5,3 +5,4 @@ export * as SecureWalletState from "./SecureWalletState";
 export * as SecureTransactionState from "./SecureEVMTransactionsState";
 export * as SecureDAppState from "./SecureDAppState";
 export * as SecureHardwareState from "./SecureHardwareState";
+export * as SecureGaslessTransactionState from "./SecureGaslessTransactionState";

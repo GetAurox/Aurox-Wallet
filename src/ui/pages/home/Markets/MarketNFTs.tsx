@@ -74,8 +74,8 @@ export default memo(function MarketNFTs({ onScroll }: MarketNFTsProps) {
           items={NFTTokens}
           loadMore={handleLoadMore}
           hasNextPage={hasNextResults}
-          rowHeight={document.body.clientHeight}
-          rowWidth={ROW_WIDTH}
+          listHeight={document.body.clientHeight}
+          listWidth={ROW_WIDTH}
           itemSize={ROW_HEIGHT}
           isNextPageLoading={loading}
           onScrollingChanged={handleOnScroll}

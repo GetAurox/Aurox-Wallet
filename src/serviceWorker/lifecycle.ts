@@ -1,4 +1,4 @@
-const sw = globalThis as any as ServiceWorkerGlobalScope;
+import sw from "common/sw";
 
 sw.addEventListener("install", () => {
   sw.skipWaiting();

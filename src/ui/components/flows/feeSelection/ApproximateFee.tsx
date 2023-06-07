@@ -15,15 +15,15 @@ export default function ApproximateFee(props: ApproximateFeeProps) {
     <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
       <Typography variant="medium">Approximate Network Fee: {fee ? `$${formatAmount(fee)}` : "--"}</Typography>
       <InfoTooltip>
-        <Typography variant="large">
-          Approximate network fee to submit the transaction to the selected blockchain. This fee is paid to the miners/stakers of the
-          blockchain so that your transaction can be processed.
-        </Typography>
-        <Typography variant="large" mt={1}>
-          <Link href="https://ethereum.org/en/developers/docs/gas/" target="_blank" rel="noreferrer" underline="hover">
+        <Stack rowGap={1}>
+          <Typography variant="large">
+            Approximate network fee to submit the transaction to the selected blockchain. This fee is paid to the miners/stakers of the
+            blockchain so that your transaction can be processed.
+          </Typography>
+          <Link variant="large" href="https://ethereum.org/en/developers/docs/gas/" target="_blank" rel="noreferrer" underline="hover">
             Learn more
           </Link>
-        </Typography>
+        </Stack>
       </InfoTooltip>
     </Stack>
   );

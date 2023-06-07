@@ -45,7 +45,12 @@ export const UNS_RESOLVE_BASE_URL = "https://resolve.unstoppabledomains.com";
 
 export const SCAVENGER_HUNT_URL = "https://schunt.getaurox.com";
 
+export const GASLESS_SERVICE_URL = "https://aurox-gassless-swaps.labrys.group";
+export const FLASHBOTS_PROTECT_URL = "https://protect.flashbots.net";
+
 export const BLOCKNATIVE_URL = "https://api.blocknative.com";
+
+export const ONE_INCH_API_URL = "https://api.1inch.io/v4.0";
 
 export const ALCHEMY_MAINNET_NFT_URL = `https://eth-mainnet.g.alchemy.com/nft/v2/${ALCHEMY_ETH_MAINNET_API_KEY}`;
 export const ALCHEMY_POLYGON_NFT_URL = `https://polygon-mainnet.g.alchemy.com/nft/v2/${ALCHEMY_POLYGON_MAINNET_API_KEY}`;
@@ -56,3 +61,5 @@ export const ALCHEMY_MAINNET_RPC_URL = `https://eth-mainnet.g.alchemy.com/v2/${A
 export const ALCHEMY_POLYGON_RPC_URL = `https://polygon-mainnet.g.alchemy.com/v2/${ALCHEMY_POLYGON_MAINNET_API_KEY}`;
 export const ALCHEMY_ARBITRUM_RPC_URL = `https://arb-mainnet.g.alchemy.com/v2/${ALCHEMY_ARBITRUM_MAINNET_API_KEY}`;
 export const ALCHEMY_OPTIMISM_RPC_URL = `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_OPTIMISM_MAINNET_API_KEY}`;
+
+export const UNINSTALL_URL = "https://aurox.typeform.com/wallet";

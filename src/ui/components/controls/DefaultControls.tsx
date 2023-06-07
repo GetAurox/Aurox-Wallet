@@ -6,15 +6,6 @@ import { FixedPanelProps } from "../layout/misc/FixedPanel";
 
 import WrapperControls from "./WrapperControls";
 
-const sxStyles = {
-  button: {
-    flex: 1,
-  },
-  fixedPanelSpacer: {
-    mt: 2,
-  },
-};
-
 export interface DefaultControlsProps extends Omit<FixedPanelProps, "direction" | "variant"> {
   /**
    * text of primary (right) button
@@ -38,11 +29,11 @@ export default function DefaultControls(props: DefaultControlsProps) {
   return (
     <WrapperControls {...stackProps}>
       {onSecondary && (
-        <Button variant="outlined" sx={sxStyles.button} onClick={onSecondary} disabled={disabledSecondary}>
+        <Button variant="outlined" fullWidth onClick={onSecondary} disabled={disabledSecondary}>
           {secondary}
         </Button>
       )}
-      <Button variant="contained" sx={sxStyles.button} onClick={onPrimary} disabled={disabledPrimary}>
+      <Button variant="contained" fullWidth onClick={onPrimary} disabled={disabledPrimary}>
         {primary}
       </Button>
     </WrapperControls>

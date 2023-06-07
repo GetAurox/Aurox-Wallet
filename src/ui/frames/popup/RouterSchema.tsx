@@ -19,9 +19,9 @@ const Security = lazy(() => import(/* webpackChunkName: "pages/settings/security
 const InviteFriend = lazy(() => import(/* webpackChunkName: "pages/settings/invite" */ "ui/pages/settings/InviteFriend"));
 const ResetWallet = lazy(() => import(/* webpackChunkName: "pages/settings/reset-wallet" */ "ui/pages/settings/ResetWallet"));
 const General = lazy(() => import(/* webpackChunkName: "pages/settings/general" */ "ui/pages/settings/General/General"));
-// const GasPresets = lazy(() => import(/* webpackChunkName: "pages/settings/general" */ "ui/pages/settings/General/GasPresets"));
-// const GasPresetsForm = lazy(() => import(/* webpackChunkName: "pages/settings/general" */ "ui/pages/settings/General/GasPresetsForm"));
-// const GasPresetsNetworksSelector = lazy(() => import(/* webpackChunkName: "pages/settings/general" */ "ui/pages/settings/General/GasPresetsNetworksSelector"));
+const GasPresets = lazy(() => import(/* webpackChunkName: "pages/settings/general" */ "ui/pages/settings/General/GasPresets"));
+const GasPresetsForm = lazy(() => import(/* webpackChunkName: "pages/settings/general" */ "ui/pages/settings/General/GasPresetsForm"));
+const GasPresetsNetworksSelector = lazy(() => import(/* webpackChunkName: "pages/settings/general" */ "ui/pages/settings/General/GasPresetsNetworksSelector"));
 
 const Connect = lazy(() => import(/* webpackChunkName: "pages/dapp/connect" */ "ui/pages/dapp/Connect"));
 
@@ -45,7 +45,7 @@ const NFTImport = lazy(() => import(/* webpackChunkName: "pages/nft/nft-token" *
 const SetupWallet = lazy(() => import(/* webpackChunkName: "pages/flows/setup-wallet" */ "ui/pages/flows/SetupWallet"));
 const Receive = lazy(() => import(/* webpackChunkName: "pages/flows/receive" */ "ui/pages/flows/Receive"));
 const Login = lazy(() => import(/* webpackChunkName: "pages/flows/login" */ "ui/pages/flows/Login"));
-// const Swap = lazy(() => import(/* webpackChunkName: "pages/flows/swap" */ "ui/pages/flows/Swap"));
+const Swap = lazy(() => import(/* webpackChunkName: "pages/flows/swap" */ "ui/pages/flows/Swap"));
 const Send = lazy(() => import(/* webpackChunkName: "pages/flows/send" */ "ui/pages/flows/Send"));
 const SendSelect = lazy(() => import(/* webpackChunkName: "pages/flows/send-select" */ "ui/pages/flows/SendSelect"));
 
@@ -102,7 +102,7 @@ export default memo(function RouterSchema() {
             <Route path="/add-token/account-change" element={<LazyRoute Route={AddTokenAccountChange} />} />
             <Route path="/token/global/:assetId" element={<LazyRoute Route={Token} />} />
             <Route path="/token/network-specific/:assetKey" element={<LazyRoute Route={Token} />} />
-            {/* <Route path="/swap" element={<LazyRoute Route={Swap} />} /> */}
+            <Route path="/swap" element={<LazyRoute Route={Swap} />} />
             <Route path="/send" element={<LazyRoute Route={Send} />} />
             <Route path="/send-select" element={<LazyRoute Route={SendSelect} />} />
             <Route path="/send-nft/:networkIdentifier/:contractAddress/:tokenId" element={<LazyRoute Route={SendNFT} />} />
@@ -123,9 +123,9 @@ export default memo(function RouterSchema() {
             <Route path="/testnet" element={<LazyRoute Route={TestnetForm} />} />
             <Route path="/testnets" element={<LazyRoute Route={Testnet} />} />
             <Route path="/general" element={<LazyRoute Route={General} />} />
-            {/* <Route path="/general/gas-presets/networks" element={<LazyRoute Route={GasPresetsNetworksSelector} />} /> */}
-            {/* <Route path="/general/gas-presets/:networkIdentifier" element={<LazyRoute Route={GasPresets} />} /> */}
-            {/* <Route path="/general/gas-presets/form/:level/:networkIdentifier" element={<LazyRoute Route={GasPresetsForm} />} /> */}
+            <Route path="/general/gas-presets/networks" element={<LazyRoute Route={GasPresetsNetworksSelector} />} />
+            <Route path="/general/gas-presets/:networkIdentifier" element={<LazyRoute Route={GasPresets} />} />
+            <Route path="/general/gas-presets/form/:level/:networkIdentifier" element={<LazyRoute Route={GasPresetsForm} />} />
             <Route path="/reveal-private-key/:id" element={<LazyRoute Route={RevealPrivateKey} />} />
             <Route path="/transactions/:txHash/details" element={<LazyRoute Route={TransactionToken} />} />
             <Route path="/manage" element={<LazyRoute Route={WalletManage} />} />

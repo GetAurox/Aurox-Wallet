@@ -1,11 +1,14 @@
+import { TransactionRequest } from "@ethersproject/abstract-provider";
+
 import { EVMTransactions } from "common/operations";
-import { Simulation, TransactionRequest } from "common/types";
+import { Simulation } from "common/types";
 
 import { getNFTNameAndSymbol } from "common/api/getNFTMetadata";
 
 export async function fetchSimulate(transaction: TransactionRequest, chainId: number): Promise<Simulation.Result> {
   const result = await EVMTransactions.SimulateEVMTransactions.perform({
     chainId,
+    simulator: "alchemy",
     transactions: [
       {
         value: transaction.value ?? "0x0",

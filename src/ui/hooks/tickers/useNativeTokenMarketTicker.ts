@@ -4,17 +4,17 @@ import { createAssetKey, getAssetIdentifierFromDefinition, getNetworkDefinitionF
 import { networkNativeCurrencyData } from "common/config";
 import { AssetDefinition } from "common/types";
 
-import { useTicker } from "ui/common/connections";
+import { UseTickersOptions, useTicker } from "ui/common/connections";
 import { TokenTicker } from "ui/types";
 
 /**
  * Helper hook to easily access ticker information on native asset of the given network that is supported by
  * our market tickers service
  */
-export function useNativeTokenMarketTicker(networkIdentifier: string) {
+export function useNativeTokenMarketTicker(networkIdentifier: string, tickerOptions: UseTickersOptions = {}) {
   const targetPairId = networkNativeCurrencyData[networkIdentifier]?.pairId ?? null;
 
-  const ticker = useTicker(targetPairId);
+  const ticker = useTicker(targetPairId, tickerOptions);
 
   return useMemo<TokenTicker>(() => {
     const assetDefinition: AssetDefinition = { type: "native" };

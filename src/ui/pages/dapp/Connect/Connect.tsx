@@ -5,18 +5,17 @@ import { DApp as DAppEvents } from "common/events";
 
 import { ConsolidatedAccountInfo, OperationConnect } from "common/types";
 
-import { useActiveAccount, useCurrentTabDomain, useDocumentTitle } from "ui/hooks";
-
-import ConnectLoading from "ui/components/common/LoadingScreen";
-
-import useScavengerHuntMnemonic from "ui/hooks/misc/useScavengerHuntMnemonic";
-
-import WalletSelectorModal from "ui/components/modals/WalletSelectorModal";
-
+import useAnalytics from "ui/common/analytics";
 import { useHistoryState } from "ui/common/history";
 
-import ConnectPermission from "./ConnectPermission";
+import { useActiveAccount, useCurrentTabDomain, useDocumentTitle } from "ui/hooks";
+import useScavengerHuntMnemonic from "ui/hooks/misc/useScavengerHuntMnemonic";
+
+import ConnectLoading from "ui/components/common/LoadingScreen";
+import WalletSelectorModal from "ui/components/modals/WalletSelectorModal";
+
 import ConnectSelect from "./ConnectSelect";
+import ConnectPermission from "./ConnectPermission";
 import { ConnectMnemonic } from "./ConnectMnemonic";
 
 export interface ConnectProps {
@@ -33,6 +32,8 @@ export default function Connect(props: ConnectProps) {
   const [networkIdentifier, setNetworkIdentifier] = useState<string | null>(null);
   const [stage, setStage] = useState<"connect" | "permission" | "mnemonic">("connect");
   const [considerOtherProvider, setConsiderOtherProvider] = useState(operation.considerOtherProvider);
+
+  const { trackButtonClicked } = useAnalytics();
 
   const activeAccount = useActiveAccount();
 
@@ -90,6 +91,8 @@ export default function Connect(props: ConnectProps) {
 
     await DAppOps.ChangeConnectionPolicy.perform({ considerOtherProvider: false, isDefaultProvider: true, tabId, domain });
 
+    trackButtonClicked("Connected with Aurox");
+
     setConsiderOtherProvider(false);
   };
 
@@ -99,6 +102,8 @@ export default function Connect(props: ConnectProps) {
     await DAppOps.ChangeConnectionPolicy.perform({ considerOtherProvider: true, isDefaultProvider: false, tabId, domain });
 
     DAppEvents.TransactionRequestResponded.broadcast(operation.id, { accountUUID: "", networkIdentifier: "" });
+
+    trackButtonClicked("Connected with Metamask");
   };
 
   const closeWindow = async () => {

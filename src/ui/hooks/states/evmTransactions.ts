@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import pickBy from "lodash/pickBy";
-import { Dictionary } from "lodash";
+import type { Dictionary } from "lodash";
 
 import { SecureEVMTransactionsState } from "common/states";
 

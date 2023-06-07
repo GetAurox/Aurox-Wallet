@@ -3,6 +3,7 @@ export const GRAPHQL_LEECHER_X_API_KEY = process.env.GRAPHQL_LEECHER_X_API_KEY!;
 export const POCKETUNIVERSE_API_KEY = process.env.POCKETUNIVERSE_API_KEY!;
 export const SENTRY_PUBLIC_KEY = process.env.SENTRY_PUBLIC_KEY!;
 export const UNS_API_KEY = process.env.UNS_API_KEY!;
+export const SEGMENT_ANALYTICS_WRITE_KEY = process.env.SEGMENT_ANALYTICS_WRITE_KEY!;
 
 export const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY!;
 export const BSCSCAN_API_KEY = process.env.BSCSCAN_API_KEY!;

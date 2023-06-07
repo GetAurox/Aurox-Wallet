@@ -393,7 +393,7 @@ export class ImportedAssetManager extends TypedEmitter<ImportedAssetManagerEvent
             autoImported: true,
             ...importedAsset,
           });
-        } else if (existingCorrespondingAsset.verified !== importedAsset.verified) {
+        } else if (existingCorrespondingAsset.verified !== importedAsset.verified && !!String(importedAsset.name).trim()) {
           updates.push([existingCorrespondingAsset.key, { verified: importedAsset.verified }]);
         } else if (existingCorrespondingAsset.metadata?.accountAddress !== importedAsset.metadata?.accountAddress) {
           updates.push([

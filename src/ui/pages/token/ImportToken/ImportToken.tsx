@@ -10,12 +10,12 @@ import { useEnabledNetworks, useTokenInformation } from "ui/hooks";
 
 import { isEthereumAddress } from "ui/common/validators";
 import { useHistoryGoBack } from "ui/common/history";
+import useAnalytics from "ui/common/analytics";
 
 import FormField from "ui/components/form/FormField";
 import Header from "ui/components/layout/misc/Header";
-import NetworkIdentifierPickerModal from "ui/components/modals/NetworkIdentifierPickerModal";
-
 import { IconArrowDownIOS } from "ui/components/icons";
+import NetworkIdentifierPickerModal from "ui/components/modals/NetworkIdentifierPickerModal";
 
 const sxStyles = {
   networkLabel: {
@@ -45,6 +45,8 @@ export default function ImportToken() {
   const [selectedNetworkIdentifier, setSelectedNetworkIdentifier] = useState(ethereumMainnetNetworkIdentifier);
 
   const [openNetworksModal, setOpenNetworksModal] = useState(false);
+
+  const { trackButtonClicked } = useAnalytics();
 
   const goBack = useHistoryGoBack();
 
@@ -158,6 +160,8 @@ export default function ImportToken() {
           throw new Error(result.message);
         }
       }
+
+      trackButtonClicked("Imported Token");
 
       setStatus(null);
 

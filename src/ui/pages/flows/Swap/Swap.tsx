@@ -1,533 +1,539 @@
-import { useState, ChangeEvent, MouseEvent, Fragment, useMemo, useCallback } from "react";
-import noop from "lodash/noop";
+import { useCallback, useEffect, useMemo, useReducer } from "react";
+import produce from "immer";
 
-import { Theme, Button, Link, Collapse, Stack, Box, Divider, Typography } from "@mui/material";
+import { Typography } from "@mui/material";
 
-import { TokenSwapSlippageTolerance, TokenSwapDirection } from "common/types";
+import { EVMTransactions, Wallet } from "common/operations";
+import { Pair, SwapDetails, getSlippageValueFromToleranceType } from "common/wallet";
+import { ethereumMainnetNetworkIdentifier, proxySwapAddressMapping } from "common/config";
+import { EVMTransactionStatus, TokenSwapSlippageTolerance, TransactionRequest } from "common/types";
 
-import { useActiveAccountFlatTokenBalances, useAssertBalancesSynchronizedForAssets, useTokensDisplayWithTickers } from "ui/hooks";
-import { useHistoryReset, useHistoryGoBack, useHistoryState } from "ui/common/history";
-import { FeeConfiguration, defaultFeePreference, feeData } from "ui/common/fee";
-import { TokenDisplayWithTicker } from "ui/types";
-import { formatAmount } from "ui/common/utils";
+import useAnalytics from "ui/common/analytics";
+import { useRewardSystemContext } from "ui/common/rewardSystem";
+import { useHistoryReset, useHistoryState } from "ui/common/history";
 
-import TokenSelectModal from "ui/components/modals/TokenSelectModal";
-import TokenIdentity from "ui/components/entity/token/TokenIdentity";
-import TokenSwitcher from "ui/components/entity/token/TokenSwitcher";
-import IconExpandMore from "ui/components/styled/IconExpandMore";
-import ExpandButton from "ui/components/styled/ExpandButton";
-import InfoTooltip from "ui/components/info/InfoTooltip";
-import Success from "ui/components/layout/misc/Success";
-import Header from "ui/components/layout/misc/Header";
-import FeeModal from "ui/components/modals/FeeModal";
-import FormField from "ui/components/form/FormField";
+import {
+  useActiveAccount,
+  useDebounce,
+  useDeepMemo,
+  useGaslessTransactionInformation,
+  useNativeTokenMarketTicker,
+  useNetworkByIdentifier,
+  useStages,
+  useTimeCounter,
+  useTokenSwap,
+} from "ui/hooks";
+import { useEVMTransactions } from "ui/hooks/states/evmTransactions";
 
-import { IconChevronRight, IconSwitchSide } from "ui/components/icons";
+import SuccessView from "ui/components/layout/misc/Success";
+import FailView from "ui/components/layout/misc/FailView";
 
-import { getTokenSwapRouteStages, normalizeTokenSwapRouteStages } from "./utils";
-import { mockTxHash, submittingTransaction, getSwapRoute } from "./mock";
+import { bothTransactionsNeedSigning, getTokenSwapDetails, isSomeTransactionPending, oneTransactionSigned } from "./helpers";
 
-import SwapSlippageSelector from "./SwapSlippageSelector";
-import SwapSwitchButton from "./SwapSwitchButton";
-import SwapRouteModal from "./SwapRouteModal";
+import PreviewView from "./PreviewView";
+import PendingView from "./PendingView";
+import InitialView, { type Amount } from "./InitialView";
+import { defaultSlippageTolerance } from "./SwapSlippage";
+import { useSwapTokenPairTickers } from "./useTokenPairTickers";
+import { ConfirmCancelSwapModal } from "./ConfirmCancelSwapModal";
 
-const defaultSlippageTolerance: TokenSwapSlippageTolerance = "auto";
+type Stage = typeof stages[number];
+
+export type Exchange = SwapDetails & { amounts: Pair<Amount> } & { swapContract: string };
+
+export type ExchangeState = {
+  gasless: boolean;
+  swapContract: string;
+  slippage: TokenSwapSlippageTolerance;
+  values: Pair<{ amount: Amount; currency: Amount }>;
+};
+
+const stages = ["initial", "pending", "preview", "completed"] as const;
+
+export const defaultExchange: ExchangeState = {
+  gasless: false,
+  swapContract: "",
+  slippage: defaultSlippageTolerance,
+  values: { from: { amount: "", currency: "" }, to: { amount: "", currency: "" } },
+};
+
+interface SwapState {
+  gasless: boolean;
+  swapContract: string;
+  swapTransactionHash: string;
+  approvalError?: string | null;
+  approvalTransactionHash: string;
+  slippage: TokenSwapSlippageTolerance;
+  values: typeof defaultExchange.values;
+  warningModalOpen: boolean;
+  swapError?: string | null;
+  hwSwapSubmitted?: boolean;
+}
+
+type SwapAction =
+  | {
+      type: "SET_SWAP_TRANSACTION_HASH";
+      payload: SwapState["swapTransactionHash"];
+    }
+  | {
+      type: "SET_APPROVAL_TRANSACTION_HASH";
+      payload: SwapState["approvalTransactionHash"];
+    }
+  | {
+      type: "SET_VALUES";
+      payload: SwapState["values"];
+    }
+  | {
+      type: "SET_APPROVAL_ERROR";
+      payload: SwapState["approvalError"];
+    }
+  | {
+      type: "SET_EXCHANGE";
+      payload: Partial<ExchangeState>;
+    }
+  | {
+      type: "SET_WARNING_MODAL_OPEN";
+      payload: SwapState["warningModalOpen"];
+    }
+  | {
+      type: "SET_SWAP_ERROR";
+      payload: SwapState["swapError"];
+    }
+  | {
+      type: "SET_HW_SWAP_SUBMITTED";
+      payload: SwapState["hwSwapSubmitted"];
+    };
+
+const reducer = produce((draft: SwapState, action: SwapAction) => {
+  switch (action.type) {
+    case "SET_SWAP_TRANSACTION_HASH":
+      draft.swapTransactionHash = action.payload;
+      break;
+    case "SET_APPROVAL_TRANSACTION_HASH":
+      draft.approvalTransactionHash = action.payload;
+      break;
+    case "SET_VALUES":
+      draft.values = action.payload;
+      break;
+    case "SET_APPROVAL_ERROR":
+      draft.approvalError = action.payload;
+      break;
+    case "SET_EXCHANGE":
+      draft.values = action.payload.values ?? draft.values;
+      draft.gasless = action.payload.gasless ?? draft.gasless;
+      draft.slippage = action.payload.slippage ?? draft.slippage;
+      draft.swapContract = action.payload.swapContract ?? draft.swapContract;
+      break;
+    case "SET_WARNING_MODAL_OPEN":
+      draft.warningModalOpen = action.payload;
+      break;
+    case "SET_SWAP_ERROR":
+      draft.swapError = action.payload;
+      break;
+    case "SET_HW_SWAP_SUBMITTED":
+      draft.hwSwapSubmitted = action.payload;
+      break;
+    default:
+      throw new Error("Invalid action type");
+  }
+});
 
 export default function Swap() {
+  const initialState: SwapState = {
+    approvalError: null,
+    swapTransactionHash: "",
+    approvalTransactionHash: "",
+    warningModalOpen: false,
+    ...defaultExchange,
+  };
+
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  const { stage, setStage } = useStages<Stage>(stages);
+  const { set, timeLeft } = useTimeCounter();
+
   const reset = useHistoryReset();
-  const goBack = useHistoryGoBack();
 
-  const [fromAssetKey, setFromAssetKey] = useHistoryState<string | null>("fromAssetKey", null);
-  const [toAssetKey, setToAssetKey] = useHistoryState<string | null>("toAssetKey", null);
+  const { trackButtonClicked } = useAnalytics();
 
-  const [stage, setStage] = useState<null | "preview" | "completed">(null);
-  const [expanded, setExpanded] = useState(false);
-  const [slippage, setSlippage] = useState<TokenSwapSlippageTolerance>(defaultSlippageTolerance);
-  const [memo, setMemo] = useState("");
-  const [openRouteModal, setOpenRouteModal] = useState(false);
-  const [openFeeModal, setOpenFeeModal] = useState(false);
-  const [openTokenModal, setOpenTokenModal] = useState(false);
-  const [fromAmount, setFromAmount] = useState(0);
-  const [toAmount, setToAmount] = useState(0);
-  const [direction, setDirection] = useState<TokenSwapDirection | null>(null);
-  const [lastEdited, setLastEdited] = useState<TokenSwapDirection | null>(null);
-  const [fee, setFee] = useState<FeeConfiguration>(feeData[defaultFeePreference]);
+  const activeAccount = useActiveAccount();
 
-  const tokens = useTokensDisplayWithTickers(useActiveAccountFlatTokenBalances());
+  const [fromTokenKey] = useHistoryState("fromTokenKey", "");
+  const [toTokenKey] = useHistoryState("toTokenKey", "");
 
-  const swapFrom = tokens.find(token => token.key === fromAssetKey) ?? null;
-  const swapTo = tokens.find(token => token.key === toAssetKey) ?? null;
+  const { publish } = useRewardSystemContext();
 
-  useAssertBalancesSynchronizedForAssets([fromAssetKey, toAssetKey]);
+  const { from: fromToken, to: toToken } = useSwapTokenPairTickers({ from: fromTokenKey, to: toTokenKey });
 
-  const ratio = swapFrom?.priceUSD && swapTo?.priceUSD ? Number(swapFrom.priceUSD) / Number(swapTo.priceUSD) : null;
+  const network = useNetworkByIdentifier(fromToken?.networkIdentifier || ethereumMainnetNetworkIdentifier);
 
-  const exceedsBalance = swapFrom ? Number(swapFrom.balance) < fromAmount : false;
+  const transactions = useEVMTransactions();
 
-  const filteredTokensForDirection = tokens.filter(token => {
-    if (direction === "from" && token.key === swapTo?.key) return false;
-    if (direction === "to" && token.key === swapFrom?.key) return false;
+  const swapTxKey = `${activeAccount?.uuid}||${fromToken?.networkIdentifier}||${state.swapTransactionHash}`;
+  const approvalTxKey = `${activeAccount?.uuid}||${fromToken?.networkIdentifier}||${state.swapTransactionHash}`;
 
-    return true;
+  const swapTransaction = transactions?.[swapTxKey];
+  const approvalTransaction = transactions?.[approvalTxKey];
+
+  const nativeTicker = useNativeTokenMarketTicker(fromToken?.networkIdentifier || ethereumMainnetNetworkIdentifier, {
+    throttleMaxWait: 10000,
   });
+  const gaslessTransactionInfo = useGaslessTransactionInformation();
+  const isHardwareWallet = activeAccount?.type === "hardware";
 
-  const isCustomSlippage = typeof slippage === "object" && "custom" in slippage;
-  const slippageError = isCustomSlippage && typeof slippage.custom === "number" && (slippage.custom < 0 || slippage.custom > 50);
-  const slippageWarning =
-    (typeof slippage === "number" && (slippage < 0.05 || slippage > 1)) ||
-    (isCustomSlippage && typeof slippage.custom === "number" && (slippage.custom < 0.05 || slippage.custom > 1));
+  const swapToToken = getTokenSwapDetails(toToken);
+  const swapFromToken = getTokenSwapDetails(fromToken);
 
-  const slippageRenderValue =
-    slippage === "auto"
-      ? "Auto"
-      : isCustomSlippage
-      ? typeof slippage.custom === "number"
-        ? `${slippage.custom}%`
-        : "Auto"
-      : `${slippage}%`;
+  const memoizedSwapToToken = useDeepMemo(swapToToken);
+  const memoizedSwapFromToken = useDeepMemo(swapFromToken);
 
-  const handleExpandToggle = () => {
-    setExpanded(!expanded);
-  };
-
-  const handleGoInitial = () => {
-    setStage(null);
-  };
-
-  const handleGoPreview = () => {
-    setStage("preview");
-    setExpanded(true);
-  };
-
-  const handleConfirmSwap = () => {
-    setStage("completed");
-  };
-
-  const handleComplete = () => {
-    reset(`/transactions/${mockTxHash}/details`);
-  };
-
-  const handleMemoChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setMemo(event.target.value);
-  };
-
-  const handleOpenRouteModal = (event: MouseEvent) => {
-    event.preventDefault();
-
-    setOpenRouteModal(true);
-  };
-
-  const handleCloseRouteModal = () => {
-    setOpenRouteModal(false);
-  };
-
-  const handleOpenFeeModal = (event: MouseEvent) => {
-    event.preventDefault();
-
-    setOpenFeeModal(true);
-  };
-
-  const handleCloseFeeModal = () => {
-    setOpenFeeModal(false);
-  };
-
-  const handleFeeSelect = (fee: FeeConfiguration) => {
-    setFee(fee);
-
-    handleCloseFeeModal();
-  };
-
-  const handleOpenTokenModal = () => {
-    setOpenTokenModal(true);
-  };
-
-  const handleCloseTokenModal = () => {
-    setOpenTokenModal(false);
-  };
-
-  const createTokenClickHandle = useCallback(
-    (dir: TokenSwapDirection) => () => {
-      setDirection(dir);
-
-      handleOpenTokenModal();
-    },
-    [],
+  const exchange = useMemo(
+    () => ({
+      gasless: state.gasless,
+      swapContract: state.swapContract,
+      slippage: getSlippageValueFromToleranceType(state.slippage),
+      amounts: {
+        from: state.values.from.amount,
+        to: state.values.to.amount,
+      },
+      tokens: { from: memoizedSwapFromToken, to: memoizedSwapToToken },
+    }),
+    [
+      state.gasless,
+      state.swapContract,
+      state.slippage,
+      state.values.from.amount,
+      state.values.to.amount,
+      memoizedSwapFromToken,
+      memoizedSwapToToken,
+    ],
   );
 
-  const createTokenAmountChangeHandle = useCallback(
-    (dir: TokenSwapDirection) => (value: number) => {
-      let setter: typeof setFromAmount = noop;
-      let opposite: typeof setToAmount = noop;
-      let whatEdited: TokenSwapDirection | null = null;
+  const debouncedExchange = useDebounce(exchange, 1000);
 
-      if (dir === "from") {
-        setter = setFromAmount;
-        opposite = setToAmount;
-        whatEdited = "from";
-      } else {
-        setter = setToAmount;
-        opposite = setFromAmount;
-        whatEdited = "to";
-      }
+  const { approvalService, swapService, error, loading } = useTokenSwap(debouncedExchange);
 
-      setLastEdited(whatEdited);
+  const needsApproval = !!approvalService;
 
-      setter(value);
+  const approvalNetworkFeeUSD = needsApproval
+    ? (approvalService?.feeStrategy?.feePriceInNativeCurrency ?? 0) * Number(nativeTicker?.priceUSD ?? 0)
+    : 0;
 
-      if (ratio) {
-        if (dir === "from") {
-          opposite(value * ratio);
-        } else {
-          opposite(value / ratio);
-        }
-      }
+  const swapNetworkFeeUSD = (swapService?.feeStrategy?.feePriceInNativeCurrency ?? 0) * Number(nativeTicker?.priceUSD ?? 0);
+
+  const handleExchangeChange = useCallback(
+    async (exchange: Partial<ExchangeState>) => {
+      const chainId = fromToken?.networkDefinition?.chainId;
+
+      const swapContract = chainId ? proxySwapAddressMapping[chainId] : "";
+
+      const newSwapContract = exchange.swapContract ?? swapContract;
+
+      dispatch({ type: "SET_EXCHANGE", payload: { ...exchange, swapContract: newSwapContract } });
     },
-    [ratio],
+    [fromToken?.networkDefinition?.chainId],
   );
 
-  const handleTokenSelect = (token: TokenDisplayWithTicker) => {
-    if (direction === "from") {
-      setFromAssetKey(token.key);
-    } else {
-      setToAssetKey(token.key);
+  const handleSendApproval = useCallback(async () => {
+    if (!approvalService) {
+      throw new Error("Approval manager is not configured properly");
     }
 
-    setFromAmount(0);
-    setToAmount(0);
+    try {
+      const { hash, waitForReceipt, getTransactionStatus } = await approvalService.sendTransaction();
 
-    handleCloseTokenModal();
+      await waitForReceipt();
+
+      const status = await getTransactionStatus();
+
+      if (status === EVMTransactionStatus.Completed) {
+        dispatch({ type: "SET_APPROVAL_ERROR", payload: null });
+
+        if (hash) {
+          dispatch({ type: "SET_APPROVAL_TRANSACTION_HASH", payload: hash });
+
+          await handleExchangeChange(exchange);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+
+      dispatch({ type: "SET_APPROVAL_ERROR", payload: error });
+    }
+  }, [approvalService, exchange, handleExchangeChange]);
+
+  const handleRequestSwap = () => {
+    if (!fromToken || !toToken) {
+      throw new Error("Can not continue to the next phase, tokens are not selected");
+    }
+
+    if (!state.values.from.amount || !state.values.to.amount) {
+      throw new Error("Can not continue to the next phase, amounts are not set");
+    }
+
+    setStage("preview");
   };
 
-  const handleSwitchSwap = () => {
-    const currentFromAssetKey = fromAssetKey;
-    const currentToAssetKey = toAssetKey;
+  const handleConfirmSwap = useCallback(async () => {
+    const sendSwap = async () => {
+      if (!swapService) {
+        throw new Error("Swap manager is not configured properly");
+      }
 
-    const currentFromAmount = fromAmount;
-    const currentToAmount = toAmount;
+      if (!fromToken?.networkIdentifier || !activeAccount?.uuid) {
+        return;
+      }
 
-    setFromAssetKey(currentToAssetKey);
-    setToAssetKey(currentFromAssetKey);
+      let hash = "";
 
-    setFromAmount(currentToAmount);
-    setToAmount(currentFromAmount);
+      if (state.gasless) {
+        hash = await EVMTransactions.SendEVMTransactionGasless.perform({
+          networkIdentifier: fromToken?.networkIdentifier,
+          accountUUID: activeAccount?.uuid,
+          swapTransaction: swapService.feeStrategy.transaction as TransactionRequest,
+          approvalTransaction: needsApproval ? (approvalService?.feeStrategy.transaction as TransactionRequest) : undefined,
+        });
+
+        trackButtonClicked("Gasless Swap");
+      } else {
+        hash = (await swapService.sendTransaction()).hash;
+
+        trackButtonClicked("Regular Swap");
+      }
+
+      if (hash) {
+        dispatch({ type: "SET_SWAP_TRANSACTION_HASH", payload: hash });
+
+        const signature = await Wallet.SignMessageV2.perform({
+          chainType: "evm",
+          message: hash,
+          uuid: activeAccount.uuid,
+          shouldArrayify: true,
+        });
+
+        publish("aurox.my.token_transaction", [], {
+          hash,
+          signature,
+          ...(fromToken && { chain_id: fromToken.networkDefinition?.chainId }),
+        });
+
+        setStage("completed");
+        dispatch({ type: "SET_HW_SWAP_SUBMITTED", payload: false });
+      }
+    };
+
+    setStage("pending");
+    set(2);
+
+    try {
+      await sendSwap();
+    } catch (error) {
+      console.error(error);
+
+      dispatch({ type: "SET_SWAP_ERROR", payload: error.message });
+    }
+  }, [
+    setStage,
+    set,
+    swapService,
+    fromToken,
+    activeAccount?.uuid,
+    state.gasless,
+    needsApproval,
+    approvalService?.feeStrategy.transaction,
+    trackButtonClicked,
+    publish,
+  ]);
+
+  const handleErrorClose = () => {
+    setStage("initial");
+    dispatch({ type: "SET_SWAP_ERROR", payload: "" });
   };
 
-  const handleSlippageChange = (value: TokenSwapSlippageTolerance) => {
-    setSlippage(value);
+  const handleCancelSwap = () => {
+    dispatch({ type: "SET_WARNING_MODAL_OPEN", payload: true });
   };
 
-  const swapRoute = useMemo(() => (swapFrom && swapTo ? getSwapRoute(swapFrom, swapTo) : null), [swapFrom, swapTo]);
+  const handleCancelSwapConfirm = () => {
+    EVMTransactions.CancelEVMTransactionGasless.perform();
+    dispatch({ type: "SET_WARNING_MODAL_OPEN", payload: false });
+    dispatch({ type: "SET_SWAP_TRANSACTION_HASH", payload: "" });
+    dispatch({ type: "SET_APPROVAL_TRANSACTION_HASH", payload: "" });
+    setStage("initial");
+  };
 
-  if (stage === "completed") {
+  const handleBackToInitial = () => {
+    setStage("initial");
+  };
+
+  const handleViewTransaction = () => {
+    reset(`/transactions/${state.swapTransactionHash}/details`);
+  };
+
+  // useEffect(() => {
+  //   if (
+  //     isHardwareWallet &&
+  //     !state.hwSwapSubmitted &&
+  //     stage === "pending" &&
+  //     gaslessTransactionInfo?.swapTransactionSigned &&
+  //     gaslessTransactionInfo?.approvalTransactionSigned
+  //   ) {
+  //     handleConfirmSwap();
+  //     dispatch({ type: "SET_HW_SWAP_SUBMITTED", payload: true });
+  //   }
+  // }, [
+  //   gaslessTransactionInfo?.approvalTransactionSigned,
+  //   gaslessTransactionInfo?.swapTransactionSigned,
+  //   handleConfirmSwap,
+  //   isHardwareWallet,
+  //   stage,
+  //   state.hwSwapSubmitted,
+  // ]);
+
+  if (state.swapError) {
     return (
-      <Success
-        heading="Complete"
-        subheading="Operation is in progress"
-        buttonDisabled={submittingTransaction}
-        onButtonClick={handleComplete}
+      <FailView
+        heading={state.gasless ? "Gasless swap failed to execute" : "Swap Failed"}
+        subheading={"Please try again.\nContact support if problem persists."}
+        onButtonClick={handleErrorClose}
       />
     );
   }
 
-  const swapRouteStages = getTokenSwapRouteStages(swapRoute);
+  if (stage === "pending" && !isHardwareWallet && timeLeft > 0) {
+    return <PendingView heading={state.gasless ? "Submitting Gasless Swap" : "Submitting Swap"} />;
+  }
 
-  const normalizedSwapRouteStages = normalizeTokenSwapRouteStages(swapRouteStages);
+  // if (stage === "pending" && isHardwareWallet && needsApproval && bothTransactionsNeedSigning(gaslessTransactionInfo)) {
+  //   return (
+  //     <>
+  //       <PendingView
+  //         heading="Please use your hardware wallet to sign the transaction (1/2)"
+  //         buttonLabel="Cancel"
+  //         onButtonClick={handleCancelSwap}
+  //         subheading={
+  //           <>
+  //             Gasless Swaps can require{" "}
+  //             <Typography fontWeight={500} color="text.primary" component="span">
+  //               2 signatures
+  //             </Typography>
+  //             .{" "}
+  //             <Typography fontWeight={500} color="text.primary" component="span">
+  //               Waiting for 1st
+  //             </Typography>{" "}
+  //             Hardware Wallet signature
+  //           </>
+  //         }
+  //       />
+  //       <ConfirmCancelSwapModal open={state.warningModalOpen} onCancel={handleCancelSwapConfirm} />
+  //     </>
+  //   );
+  // }
 
-  const routeRender = swapFrom && swapTo && swapRouteStages && normalizedSwapRouteStages && (
-    <Stack mt="17px" px={2} direction="row" alignItems="center" justifyContent="space-between">
-      <Typography variant="medium" color="text.secondary">
-        Route
-      </Typography>
-      <Stack direction="row" alignItems="center">
-        <Link href="#" underline="none" onClick={handleOpenRouteModal} title={swapRouteStages.join(" > ")}>
-          <Stack direction="row" alignItems="center" component="span">
-            {normalizedSwapRouteStages.map((name, index) => (
-              <Fragment key={`${name}-${index}`}>
-                {index > 0 && <IconChevronRight />}
-                <Typography variant="medium">{name}</Typography>
-              </Fragment>
-            ))}
-          </Stack>
-        </Link>
-      </Stack>
-    </Stack>
-  );
+  // if (stage === "pending" && isHardwareWallet && needsApproval && oneTransactionSigned(gaslessTransactionInfo)) {
+  //   return (
+  //     <>
+  //       <PendingView
+  //         heading="Please use your hardware wallet to sign the transaction (2/2)"
+  //         buttonLabel="Cancel"
+  //         onButtonClick={handleCancelSwap}
+  //         subheading={
+  //           <>
+  //             Gasless Swaps can require{" "}
+  //             <Typography fontWeight={500} color="text.primary" component="span">
+  //               2 signatures
+  //             </Typography>
+  //             .{" "}
+  //             <Typography fontWeight={500} color="text.primary" component="span">
+  //               Waiting for 2nd
+  //             </Typography>{" "}
+  //             Hardware Wallet signature
+  //           </>
+  //         }
+  //       />
+  //       <ConfirmCancelSwapModal open={state.warningModalOpen} onCancel={handleCancelSwapConfirm} />
+  //     </>
+  //   );
+  // }
 
-  const slippageRender = (
-    <Stack direction="row" alignItems="center" justifyContent="space-between">
-      {stage === "preview" ? (
-        <>
-          <Typography variant="medium" color="text.secondary">
-            Slippage Tolerance
-          </Typography>
-          {slippageWarning ? (
-            <Stack direction="row" alignItems="center" justifyContent="flex-end">
-              <InfoTooltip variant="warning">
-                <Typography variant="medium">Your transaction may fail or be front run.</Typography>
-              </InfoTooltip>
-              <Typography variant="medium" align="right">
-                {slippageRenderValue}
-              </Typography>
-            </Stack>
-          ) : (
-            <Typography variant="medium" align="right">
-              {slippageRenderValue}
-            </Typography>
-          )}
-        </>
-      ) : (
-        <>
-          <Stack direction="row" alignItems="center" flexGrow={1} flexShrink={0}>
-            <Typography variant="medium" color="text.secondary">
-              Slippage Tolerance:
-            </Typography>
-            <InfoTooltip>
-              <Typography variant="small">
-                Slippage tolerance establish a margin of change acceptable to the user beyond price impact. As long as the execution price
-                is within the slippage range, e.g., %1, the transaction will be executed. If the execution price ends up outside of the
-                accepted slippage range, the transaction will fail, and the swap will not occur.
-              </Typography>
-              <Typography variant="small" mt={0.5}>
-                Slippage tolerance values outside of 0...50% are invalid.
-              </Typography>
-              <Typography variant="small" mt={0.5}>
-                Transaction may fail for values less than 0.05%.
-              </Typography>
-              <Typography variant="small" mt={0.5}>
-                Transaction may be front run for values more than 1%.
-              </Typography>
-              <Typography variant="medium" mt={1}>
-                <Link
-                  href="https://docs.uniswap.org/protocol/concepts/V3-overview/swaps#slippage"
-                  target="_blank"
-                  rel="noreferrer"
-                  underline="hover"
-                >
-                  Learn more
-                </Link>
-              </Typography>
-            </InfoTooltip>
-          </Stack>
-          <SwapSlippageSelector
-            slippage={slippage}
-            onChange={handleSlippageChange}
-            error={slippageError}
-            flexGrow={0}
-            flexShrink={1}
-            ml={1}
-          />
-        </>
-      )}
-    </Stack>
-  );
+  // if (
+  //   stage === "pending" &&
+  //   isHardwareWallet &&
+  //   (isSomeTransactionPending([swapTransaction, approvalTransaction]) ||
+  //     (!needsApproval && bothTransactionsNeedSigning(gaslessTransactionInfo)))
+  // ) {
+  //   return (
+  //     <>
+  //       <PendingView
+  //         buttonLabel="Cancel"
+  //         onButtonClick={handleCancelSwap}
+  //         heading="Please use your hardware wallet to sign the transaction"
+  //         subheading="Waiting for Hardware Wallet confirmation"
+  //       />
+  //       <ConfirmCancelSwapModal open={state.warningModalOpen} onCancel={handleCancelSwapConfirm} />
+  //     </>
+  //   );
+  // }
 
-  const memoRender =
-    stage === "preview" ? (
-      <Stack mt={1.5} direction="row" alignItems="center" justifyContent="space-between">
-        <Typography variant="medium" color="text.secondary">
-          Memo
-        </Typography>
-        <Typography variant="medium" align="right">
-          {memo}
-        </Typography>
-      </Stack>
-    ) : (
-      <Box mt={2.75}>
-        <FormField label="Memo" placeholder="Enter memo" name="memo" autoComplete="off" value={memo} onChange={handleMemoChange} />
-      </Box>
+  if (stage === "pending" && state.gasless && isSomeTransactionPending([swapTransaction, approvalTransaction])) {
+    return (
+      <PendingView
+        buttonLabel="View Transaction"
+        heading="Waiting For Confirmation"
+        onButtonClick={handleViewTransaction}
+        subheading={`It can take up to 5 minutes for the transaction to show up on ${network?.chainExplorer?.name}`}
+      />
     );
+  }
 
-  const ratioRender = swapFrom && swapTo && ratio && (
-    <Stack direction="row" alignItems="center" justifyContent="space-between">
-      <Typography variant="medium" color="text.secondary">
-        Price:
-      </Typography>
-      <Typography variant="medium" align="right">
-        ~{formatAmount(1 / ratio)} {swapFrom.symbol}
-      </Typography>
-    </Stack>
-  );
+  if (stage === "initial") {
+    return (
+      <InitialView
+        loading={loading}
+        swapError={error}
+        network={network}
+        values={state.values}
+        gasless={state.gasless}
+        tokens={{ to: toToken, from: fromToken }}
+        slippage={state.slippage}
+        needsApproval={needsApproval}
+        requestSwap={handleRequestSwap}
+        sendApproval={handleSendApproval}
+        onExchangeChange={handleExchangeChange}
+        swapNetworkFeeUSD={swapNetworkFeeUSD}
+        approvalNetworkFeeUSD={approvalNetworkFeeUSD}
+        hasEnoughFunds={!!swapService?.feeStrategy?.hasEnoughFunds}
+        feeManager={approvalService?.feeStrategy ?? swapService?.feeStrategy ?? null}
+        approvalError={(state.approvalError || approvalService?.feeStrategy?.error) ?? ""}
+      />
+    );
+  }
 
-  const networkFeeRender = (
-    <Stack mt="10px" direction="row" alignItems="center" justifyContent="space-between">
-      <Stack direction="row" alignItems="center">
-        <Typography variant="medium" color="text.secondary">
-          Network Fee:
-        </Typography>
-        <InfoTooltip>
-          <Typography variant="large">
-            Approximate network fee to submit the transaction to the selected blockchain. This fee is paid to the miners/stakers of the
-            blockchain so that your transaction can be processed.
-          </Typography>
-          <Typography variant="large" mt={1}>
-            <Link href="#" target="_blank" rel="noreferrer" underline="hover">
-              Learn more
-            </Link>
-          </Typography>
-        </InfoTooltip>
-      </Stack>
-      <Stack direction="row" alignItems="center" spacing={0.5}>
-        <Typography variant="medium">~${formatAmount(fee.feeUSD)}</Typography>
-        <Link href="#" underline="none" onClick={handleOpenFeeModal}>
-          Edit
-        </Link>
-      </Stack>
-    </Stack>
-  );
+  if (stage === "preview" && toToken && fromToken) {
+    return (
+      <PreviewView
+        gasless={state.gasless}
+        slippage={state.slippage}
+        loading={timeLeft > 0}
+        onBackClick={handleBackToInitial}
+        onConfirmSwap={handleConfirmSwap}
+        tokens={{ to: toToken, from: fromToken }}
+        networkFeeUSD={approvalNetworkFeeUSD + swapNetworkFeeUSD}
+        amounts={{ from: state.values.from.amount, to: state.values.to.amount }}
+        feeManager={approvalService?.feeStrategy ?? swapService?.feeStrategy ?? null}
+      />
+    );
+  }
 
-  const auroxFeeRender = swapFrom && (
-    <Stack mt="10px" direction="row" alignItems="center" justifyContent="space-between">
-      <Typography variant="medium" color="text.secondary">
-        Aurox Fee:
-      </Typography>
-      <Typography variant="medium" align="right">
-        ${formatAmount(fromAmount * Number(swapFrom.priceUSD ?? 0) * 0.003)}
-      </Typography>
-    </Stack>
-  );
+  if (stage === "completed") {
+    return (
+      <SuccessView
+        buttonLabel="View Transaction"
+        onButtonClick={handleViewTransaction}
+        heading={state.gasless ? "Gasless Swap Completed" : "Swap Completed"}
+      />
+    );
+  }
 
-  const approximateFeeRender = (
-    <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-      <Typography variant="medium">Approximate Network Fee: ${formatAmount(fee.feeUSD)}</Typography>
-      <InfoTooltip>
-        <Typography variant="large">
-          Approximate network fee to submit the transaction to the selected blockchain. This fee is paid to the miners/stakers of the
-          blockchain so that your transaction can be processed.
-        </Typography>
-        <Typography variant="large" mt={1}>
-          <Link href="https://ethereum.org/en/developers/docs/gas/" target="_blank" rel="noreferrer" underline="hover">
-            Learn more
-          </Link>
-        </Typography>
-      </InfoTooltip>
-    </Stack>
-  );
-
-  return (
-    <>
-      <Header title="Swap" onBackClick={stage === "preview" ? handleGoInitial : goBack} />
-
-      <Stack mt="17px" px={2}>
-        <Stack mb="7px" direction="row" alignItems="center" justifyContent="space-between">
-          <Typography variant="medium">Swap from</Typography>
-          <Typography variant="medium" color="text.secondary">
-            Balance: ${formatAmount(Number(swapFrom?.balanceUSDValue ?? 0))}
-          </Typography>
-        </Stack>
-        <TokenSwitcher
-          approx={lastEdited === "to"}
-          amount={fromAmount}
-          price={Number(swapFrom?.priceUSD ?? 0)}
-          balance={Number(swapFrom?.balance ?? 0)}
-          onClick={createTokenClickHandle("from")}
-          onChange={createTokenAmountChangeHandle("from")}
-          disabled={stage === "preview"}
-          error={exceedsBalance}
-        >
-          {swapFrom ? (
-            <TokenIdentity {...swapFrom.img} primary={swapFrom.symbol} networkIdentifier={swapFrom.networkIdentifier} spacing={1} />
-          ) : (
-            <Typography variant="medium" lineHeight="24px">
-              Select a token
-            </Typography>
-          )}
-        </TokenSwitcher>
-        {exceedsBalance && (
-          <Typography variant="small" mt="7px" color="error.main">
-            Amount must not exceed balance ({formatAmount(swapFrom?.balance ?? 0)}
-            {swapFrom ? ` ${swapFrom.symbol}` : ""})
-          </Typography>
-        )}
-
-        <SwapSwitchButton
-          disableRipple
-          sx={{ mt: 3, mb: "22px", mx: "auto", p: 0.25 }}
-          variant="contained"
-          disabled={stage === "preview"}
-          onClick={handleSwitchSwap}
-        >
-          <IconSwitchSide />
-        </SwapSwitchButton>
-
-        <Stack mb="7px" direction="row" alignItems="center" justifyContent="space-between">
-          <Typography variant="medium">Swap to</Typography>
-          <Typography variant="medium" color="text.secondary">
-            Balance: ${formatAmount(Number(swapTo?.balanceUSDValue ?? 0))}
-          </Typography>
-        </Stack>
-        <TokenSwitcher
-          approx={lastEdited === "from"}
-          amount={toAmount}
-          price={Number(swapTo?.priceUSD ?? 0)}
-          balance={Number(swapTo?.balance ?? 0)}
-          onClick={createTokenClickHandle("to")}
-          onChange={createTokenAmountChangeHandle("to")}
-          disabled={stage === "preview"}
-        >
-          {swapTo ? (
-            <TokenIdentity {...swapTo.img} primary={swapTo.symbol} networkIdentifier={swapTo.networkIdentifier} spacing={1} />
-          ) : (
-            <Typography variant="medium" lineHeight="24px">
-              Select a token
-            </Typography>
-          )}
-        </TokenSwitcher>
-      </Stack>
-
-      {routeRender}
-      <ExpandButton
-        variant="text"
-        disableRipple
-        sx={{ mt: 4, mx: "auto" }}
-        endIcon={<IconExpandMore expand={expanded} aria-expanded={expanded} aria-label="Advanced Options" />}
-        onClick={handleExpandToggle}
-      >
-        Advanced Options
-      </ExpandButton>
-      <Collapse in={expanded} timeout="auto" unmountOnExit sx={{ p: 2 }}>
-        {slippageRender}
-        {memoRender}
-        {stage === "preview" && (
-          <>
-            <Divider sx={{ my: 2.25, borderColor: (theme: Theme) => theme.palette.custom.grey["19"] }} />
-            {ratioRender}
-            {networkFeeRender}
-            {auroxFeeRender}
-          </>
-        )}
-      </Collapse>
-
-      <Box flexGrow={1} />
-
-      {stage === "preview" ? null : approximateFeeRender}
-
-      <Button
-        sx={{ mt: "19px", mx: 2, mb: 2 }}
-        variant="contained"
-        onClick={stage === "preview" ? handleConfirmSwap : handleGoPreview}
-        disabled={!swapFrom || !swapTo || !fromAmount || !toAmount || exceedsBalance || slippageError}
-      >
-        {stage === "preview" ? "Confirm and Swap" : "Preview"}
-      </Button>
-
-      {swapRoute && openRouteModal && <SwapRouteModal onClose={handleCloseRouteModal} swapRoute={swapRoute} />}
-      {openFeeModal && swapFrom?.networkIdentifier && (
-        <FeeModal
-          networkIdentifier={swapFrom.networkIdentifier}
-          onClose={handleCloseFeeModal}
-          onFeeSelect={handleFeeSelect}
-          selectedFee={fee}
-        />
-      )}
-      {openTokenModal && (
-        <TokenSelectModal
-          title={`Swap ${direction}`}
-          tokens={filteredTokensForDirection}
-          onClose={handleCloseTokenModal}
-          onTokenSelect={handleTokenSelect}
-          selectedToken={direction === "from" ? swapFrom : swapTo}
-        />
-      )}
-    </>
-  );
+  return <></>;
 }

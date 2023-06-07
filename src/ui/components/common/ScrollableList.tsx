@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, CSSProperties } from "react";
 import noop from "lodash/noop";
 import InfiniteLoader from "react-window-infinite-loader";
 import { FixedSizeList, ListChildComponentProps, ListOnScrollProps } from "react-window";
@@ -7,8 +7,9 @@ export interface ScrollableListProps {
   items: any[];
   loadMore: () => void;
   hasNextPage: boolean;
-  rowHeight: number;
-  rowWidth: number | string;
+  listHeight: number;
+  listWidth: number | string;
+  listStyle?: CSSProperties;
   itemSize: number;
   isNextPageLoading: boolean;
   threshold?: number;
@@ -22,13 +23,14 @@ export default function ScrollableList(props: ScrollableListProps) {
     items,
     loadMore,
     hasNextPage,
-    rowWidth,
-    rowHeight,
+    listHeight,
+    listWidth,
+    listStyle,
     itemSize,
     isNextPageLoading,
+    threshold = 5,
     onScrollingChanged,
     scrollToIndex = 0,
-    threshold = 5,
     children,
   } = props;
 
@@ -63,8 +65,9 @@ export default function ScrollableList(props: ScrollableListProps) {
     >
       {({ onItemsRendered, ref }) => (
         <FixedSizeList
-          height={rowHeight}
-          width={rowWidth}
+          style={listStyle}
+          height={listHeight}
+          width={listWidth}
           itemCount={itemCount}
           itemSize={itemSize}
           onItemsRendered={onItemsRendered}

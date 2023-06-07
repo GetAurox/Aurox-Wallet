@@ -90,7 +90,7 @@ export function useTickers(pairIds: readonly number[], { throttleMaxWait, skipTh
   return data;
 }
 
-export function useTicker(pairId: number | null) {
+export function useTicker(pairId: number | null, { throttleMaxWait, skipThrottleOnMultipleUpdates }: UseTickersOptions = {}) {
   const [data, setData] = useState<TickerData | null>(null);
 
   useEffect(() => {
@@ -98,7 +98,7 @@ export function useTicker(pairId: number | null) {
       return;
     }
 
-    const closeStream = buildTickerStream([pairId], undefined, false, patch => {
+    const closeStream = buildTickerStream([pairId], throttleMaxWait, skipThrottleOnMultipleUpdates, patch => {
       if (patch[pairId]) {
         setData(patch[pairId]);
       }
@@ -109,7 +109,7 @@ export function useTicker(pairId: number | null) {
 
       setData(null);
     };
-  }, [pairId]);
+  }, [pairId, skipThrottleOnMultipleUpdates, throttleMaxWait]);
 
   return data;
 }

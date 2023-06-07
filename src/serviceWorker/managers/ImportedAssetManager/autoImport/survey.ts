@@ -122,11 +122,14 @@ export async function surveyAutoNFTUpdates(
 
       const nftMetadata = await getNFTMetadata(asset.contractAddress, asset.metadata.tokenId, network);
 
+      const NFTName = String(nftMetadata.name).trim() ? nftMetadata.name : asset.name;
+
       updates.push([
         asset.key,
         "nft",
         {
-          name: nftMetadata.name !== "" ? nftMetadata.name : asset.name,
+          name: NFTName,
+          verified: !!String(NFTName).trim(),
           metadata: {
             tokenId: asset.metadata.tokenId,
             image: nftMetadata.image ?? asset.metadata.image,

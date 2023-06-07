@@ -2,23 +2,21 @@ import { useState, ReactNode, useMemo } from "react";
 
 import { Stack, Box, Button, CircularProgress, Typography } from "@mui/material";
 
-import { DApp as DAppOps } from "common/operations";
-import { DApp as DAppEvents } from "common/events";
-
 import { fetchSimulate } from "common/api";
+import { DApp as DAppEvents } from "common/events";
+import { DApp as DAppOps } from "common/operations";
+import { RawTransaction, Simulation } from "common/types";
+import { ETHEREUM_MAINNET_CHAIN_ID } from "common/config";
+import { getNetworkDefinitionFromIdentifier } from "common/utils";
+
+import useAnalytics from "ui/common/analytics";
+
+import { useDAppOperations, useDocumentTitle, useLocalUserPreferences } from "ui/hooks";
 
 import { IconStatusError, IconStatusFail } from "ui/components/icons";
 import DefaultControls from "ui/components/controls/DefaultControls";
 import CustomControls from "ui/components/controls/CustomControls";
 import AlertStatus from "ui/components/common/AlertStatus";
-
-import { useDAppOperations, useDocumentTitle, useLocalUserPreferences } from "ui/hooks";
-
-import { RawTransaction, Simulation } from "common/types";
-
-import { getNetworkDefinitionFromIdentifier } from "common/utils";
-
-import { ETHEREUM_MAINNET_CHAIN_ID } from "common/config";
 
 import SimulationAssetChanges from "./SimulationAssetChanges";
 
@@ -53,6 +51,8 @@ export default function SimulateTransaction(props: SimulateTransactionProps) {
 
   const [userPreferences] = useLocalUserPreferences();
 
+  const { trackButtonClicked } = useAnalytics();
+
   useDocumentTitle("Simulate Transaction");
 
   const operations = useDAppOperations();
@@ -75,6 +75,8 @@ export default function SimulateTransaction(props: SimulateTransactionProps) {
       setStage("simulating");
       setResult(null);
 
+      trackButtonClicked("Simulate");
+
       try {
         const result = await fetchSimulate(transactionPayload as any, chainId ?? ETHEREUM_MAINNET_CHAIN_ID);
 
@@ -94,6 +96,8 @@ export default function SimulateTransaction(props: SimulateTransactionProps) {
 
   const handleContinue = () => {
     DAppOps.SimulateTransaction.perform(operationId, true);
+
+    trackButtonClicked("Not simulated");
 
     setStage("continue");
   };

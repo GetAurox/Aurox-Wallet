@@ -1,8 +1,6 @@
 import { MessageTypes, TypedMessage } from "@metamask/eth-sig-util";
 import type { TransactionBlockhashCtor, TransferParams, TransferWithSeedParams } from "@solana/web3.js";
 
-import { AccessListish } from "ethers/lib/utils";
-
 import { ChainType } from "./common";
 
 export interface TransactionRequest {
@@ -18,13 +16,9 @@ export interface TransactionRequest {
   chainId: number;
 
   type: number;
-  accessList?: AccessListish;
 
   maxPriorityFeePerGas?: string;
   maxFeePerGas?: string;
-
-  customData?: Record<string, any>;
-  ccipReadEnabled?: boolean;
 }
 
 export interface SignMessageData {
